@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { DeviceBatteryPanel } from "../device-battery";
 import { MicVocal, Music2, Pause, Play, RefreshCcw, SkipBack, SkipForward } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import type { MediaState } from "./api";
@@ -22,8 +21,6 @@ import { MediaNotice, MediaNoticeButton, useMediaNotice } from "./MediaNotice";
 const NO_LYRICS = { lyricsFolder: "", lyricsOnline: false, lyricsOffsetMs: 0 };
 
 type MusicPlayerPanelProps = {
-  /** Stops optional device queries when the island is collapsed. */
-  isOpen?: boolean;
   mediaState: MediaState;
   isTrackChanging: boolean;
   commandError: string | null;
@@ -48,7 +45,6 @@ type MusicPlayerPanelProps = {
  * not an empty player.
  */
 export function MusicPlayerPanel({
-  isOpen = true,
   mediaState,
   isTrackChanging,
   commandError,
@@ -160,7 +156,6 @@ export function MusicPlayerPanel({
           </button>
         </div>
       )}
-      <DeviceBatteryPanel active={isOpen} />
     </section>
   );
 }

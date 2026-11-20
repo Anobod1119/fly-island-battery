@@ -118,7 +118,6 @@ export function IslandPages({
       )}
       {page === "music" && (
         <MusicPlayerPanel
-          isOpen={mode === "expanded"}
           mediaState={mediaState}
           isTrackChanging={isMediaTrackChanging}
           commandError={mediaCommandError}
