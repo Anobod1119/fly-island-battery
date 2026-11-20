@@ -7,3 +7,5 @@ packages/fly-island-plugin/src/protocol.d.mts text eol=lf
 packages/create-fly-island-plugin/sdk/* text eol=lf
 plugins/sdk/** text eol=lf
 docs/plugins/api.md text eol=lf
+# Pinned third-party snapshot: SOURCE.json records exact upstream bytes.
+plugins/device-battery/upstream/** -text
