@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readDeviceAudio, readDeviceBatteries } from "./api";
 import type { AudioSnapshot, BatterySnapshot, DeviceBatterySettings } from "./model";
 
+/** Bluetooth scanning times out on machines without Bluetooth devices; it is not a user-facing error. */
+const HIDDEN_BATTERY_ERRORS = new Set(["bluetooth: timeout"]);
+const visibleBatteryErrors = (errors: string[]) => errors.filter((error) => !HIDDEN_BATTERY_ERRORS.has(error));
+
 export function useDeviceBattery(settings: DeviceBatterySettings, queryBattery = true) {
   const { enabled, directory, speakerId, headsetId } = settings;
   const [audio, setAudio] = useState<AudioSnapshot | null>(null);
@@ -29,9 +33,9 @@ export function useDeviceBattery(settings: DeviceBatterySettings, queryBattery =
     pending.current.battery = version; setBatteryBusy(true);
     try {
       const value = await readDeviceBatteries(directory, (snapshot) => {
-        if (version === batteryGeneration.current) { setBattery(snapshot); setBatteryError(snapshot.errors.join(" · ")); }
+        if (version === batteryGeneration.current) { setBattery(snapshot); setBatteryError(visibleBatteryErrors(snapshot.errors).join(" · ")); }
       });
-      if (version === batteryGeneration.current) { setBattery(value); setBatteryError(value.errors.join(" · ")); }
+      if (version === batteryGeneration.current) { setBattery(value); setBatteryError(visibleBatteryErrors(value.errors).join(" · ")); }
     } catch (e) { if (version === batteryGeneration.current) setBatteryError(String(e)); }
     finally { if (pending.current.battery === version) pending.current.battery = -1; if (version === batteryGeneration.current) setBatteryBusy(false); }
   }, [enabled, directory, queryBattery]);

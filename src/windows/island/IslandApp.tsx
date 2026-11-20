@@ -27,6 +27,9 @@ import { useIslandFeatures } from "./useIslandFeatures";
 import { useIslandAgentAlerts } from "./useIslandAgentAlerts";
 import { useIslandAgents } from "./useIslandAgents";
 import { useQuotaAlert } from "../../features/agent-status/useQuotaAlert";
+import { useDeviceBattery } from "../../features/device-battery/useDeviceBattery";
+import { useDeviceBatterySettings } from "../../features/device-battery/storage";
+import { useLowBatteryAlert } from "../../features/device-battery/useLowBatteryAlert";
 import { AgentArrangeButton } from "../../features/agent-status/AgentArrangeButton";
 import { useAgentIndicator } from "./useAgentIndicator";
 import { usageLineCount } from "../../features/agent-status/usage";
@@ -73,6 +76,10 @@ export function IslandApp() {
     quiet: game.quiet,
     canPopUp: !game.quiet && mode === "collapsed" && !isTucked,
   });
+  // A device at or below 20% borrows the same collapsed line, one alert per discharge.
+  const deviceBatterySettings = useDeviceBatterySettings();
+  const deviceBattery = useDeviceBattery(deviceBatterySettings, deviceBatterySettings.enabled);
+  const batteryAlert = useLowBatteryAlert(deviceBattery.battery?.devices);
   const { todos, activeTodoId, activeTodoIds, timer, timers, todoPageMode, todoListHeight, notebookProps } = useIslandTodos({ settings, navigation, quiet: game.quiet });
 
   const songPlaying = settings.musicEnabled && media.mediaState.playbackStatus === "playing" && Boolean(media.mediaState.title);
@@ -246,6 +253,7 @@ export function IslandApp() {
         features={features}
         shelfCount={settings.shelfEnabled && settings.shelfShowCount ? fileShelf.items.length : null}
         quotaAlert={quotaAlert}
+        batteryAlert={batteryAlert}
         onOpenPage={openEnabledPage}
         onWindowDragStart={startIslandDrag}
         onCollapse={collapseIsland}

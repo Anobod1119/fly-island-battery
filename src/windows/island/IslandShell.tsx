@@ -2,6 +2,7 @@ import { isGlass } from "../../features/appearance/settings";
 import type { ReactNode } from "react";
 import type { AgentSession } from "../../features/agent-status/session";
 import type { QuotaAlert } from "../../features/agent-status/quotaAlerts";
+import type { BatteryAlert } from "../../features/device-battery/lowBattery";
 import type { AgentVisualState } from "../../features/agent-status/status";
 import type { CollapsedItem, CollapsedSlot, IslandShape, Material, PageButtonStyle, PageDot, TuckStyle } from "../../features/appearance/types";
 import type { MediaState } from "../../features/media/api";
@@ -82,6 +83,8 @@ type IslandShellProps = {
   shelfCount: number | null;
   /** Claude's or Codex's usage reaching the alert level, or resetting. */
   quotaAlert?: QuotaAlert | null;
+  /** A device at or below 20%, off the charger; it takes the line first. */
+  batteryAlert?: BatteryAlert | null;
   onOpenPage: (page: IslandPage) => void;
   onWindowDragStart: () => void;
   onCollapse: () => void;
@@ -139,6 +142,7 @@ export function IslandShell({
   features,
   shelfCount,
   quotaAlert = null,
+  batteryAlert = null,
   onOpenPage,
   onWindowDragStart,
   onCollapse,
@@ -249,6 +253,7 @@ export function IslandShell({
           showMusic={features.music}
           shelfCount={shelfCount}
           quotaAlert={quotaAlert}
+          batteryAlert={batteryAlert}
           agentVisualState={agentVisualState}
           onOpenPage={onOpenPage}
           onOpenMessages={onOpenMessages}

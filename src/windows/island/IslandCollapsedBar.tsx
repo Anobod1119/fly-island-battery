@@ -3,6 +3,8 @@ import { Bot, Inbox } from "lucide-react";
 import { AgentProviderIcon } from "../../features/agent-status/AgentProviderIcon";
 import type { QuotaAlert } from "../../features/agent-status/quotaAlerts";
 import { QuotaAlertPopup } from "../../features/agent-status/QuotaAlertPopup";
+import { BatteryAlertPopup } from "../../features/device-battery/BatteryAlertPopup";
+import type { BatteryAlert } from "../../features/device-battery/lowBattery";
 import type { AgentSession } from "../../features/agent-status/session";
 import type { AgentVisualState } from "../../features/agent-status/status";
 import type { CollapsedItem, CollapsedSlot } from "../../features/appearance/types";
@@ -67,6 +69,8 @@ type IslandCollapsedBarProps = {
   shelfCount: number | null;
   /** Claude's or Codex's usage reaching the alert level, or resetting; it takes the place of the text while shown. */
   quotaAlert?: QuotaAlert | null;
+  /** A device at or below 20%, off the charger; it takes the line before the usage alert. */
+  batteryAlert?: BatteryAlert | null;
   /** A todo round reaching its reminder before the end; it takes the place of the text while shown. */
   agentVisualState: AgentVisualState;
   onOpenPage: (page: IslandPage) => void;
@@ -104,6 +108,7 @@ export function IslandCollapsedBar({
   showMusic,
   shelfCount,
   quotaAlert = null,
+  batteryAlert = null,
   agentVisualState,
   onOpenPage,
   onOpenMessages,
@@ -190,7 +195,9 @@ export function IslandCollapsedBar({
           {updatePending && <span className="island-update-dot island-update-dot--inline" aria-hidden="true" />}
           {collapsedCover && <img className="collapsed-cover" src={collapsedCover} alt="" draggable={false} />}
           <CollapsedMessageContent preview={preview} enabled={!isExpanded && !isTucked}>
-            {quotaAlert ? (
+            {batteryAlert ? (
+              <BatteryAlertPopup alert={batteryAlert} />
+            ) : quotaAlert ? (
               <QuotaAlertPopup alert={quotaAlert} />
             ) : <>
             {showCollapsedText && showTitle && (

@@ -1,6 +1,11 @@
 //! Share one hardware scan between webviews, including its latest partial result.
 use serde_json::Value;
-use std::{collections::HashMap, path::{Path, PathBuf}, sync::{Mutex, OnceLock}, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
+};
 use tokio::sync::watch;
 
 const SNAPSHOT_TTL: Duration = Duration::from_secs(10 * 60);
@@ -23,9 +28,14 @@ struct CachedSnapshot {
 }
 
 impl Scans {
-    fn subscribe(&self, path: &Path) -> Result<(watch::Receiver<Snapshot>, Option<watch::Sender<Snapshot>>), String> {
+    fn subscribe(
+        &self,
+        path: &Path,
+    ) -> Result<(watch::Receiver<Snapshot>, Option<watch::Sender<Snapshot>>), String> {
         let mut active = self.active.lock().map_err(|_| "Battery reader is unavailable")?;
-        if let Some(current) = active.get(path) { return Ok((current.clone(), None)); }
+        if let Some(current) = active.get(path) {
+            return Ok((current.clone(), None));
+        }
         let mut latest = self.latest.lock().map_err(|_| "Battery reader is unavailable")?;
         latest.retain(|_, entry| entry.saved_at.elapsed() <= SNAPSHOT_TTL);
         let cached = latest.get(path).map(|entry| mark_cached(&entry.value));
@@ -36,16 +46,29 @@ impl Scans {
 
     fn publish(&self, path: &Path, sender: &watch::Sender<Snapshot>, value: Value) {
         let mut latest = self.latest.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        latest.insert(path.to_path_buf(), CachedSnapshot { value: value.clone(), saved_at: Instant::now() });
+        latest.insert(
+            path.to_path_buf(),
+            CachedSnapshot { value: value.clone(), saved_at: Instant::now() },
+        );
         sender.send_replace(Snapshot { latest: Some(value), result: None });
     }
 
-    fn finish(&self, path: &Path, sender: &watch::Sender<Snapshot>, result: Result<Value, String>) {
+    fn finish(
+        &self,
+        path: &Path,
+        sender: &watch::Sender<Snapshot>,
+        result: Result<Value, String>,
+    ) {
         // Remove and complete under the same lock so a new caller cannot join a finished scan.
         let mut active = self.active.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Ok(value) = &result {
-            self.latest.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-                .insert(path.to_path_buf(), CachedSnapshot { value: value.clone(), saved_at: Instant::now() });
+            self.latest
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .insert(
+                    path.to_path_buf(),
+                    CachedSnapshot { value: value.clone(), saved_at: Instant::now() },
+                );
         }
         sender.send_modify(|snapshot| snapshot.result = Some(result));
         active.remove(path);
@@ -65,7 +88,10 @@ fn mark_cached(value: &Value) -> Value {
     cached
 }
 
-pub(super) async fn read(path: PathBuf, mut progress: impl FnMut(Value)) -> Result<Value, String> {
+pub(super) async fn read(
+    path: PathBuf,
+    mut progress: impl FnMut(Value),
+) -> Result<Value, String> {
     static SCANS: OnceLock<Scans> = OnceLock::new();
     static HARDWARE: Mutex<()> = Mutex::new(());
     let scans = SCANS.get_or_init(Scans::default);
@@ -81,7 +107,10 @@ pub(super) async fn read(path: PathBuf, mut progress: impl FnMut(Value)) -> Resu
                 super::read_hardware(&worker_path, move |value| {
                     scans.publish(&progress_path, &worker_sender, value);
                 })
-            }).await.map_err(|error| error.to_string()).and_then(|result| result);
+            })
+            .await
+            .map_err(|error| error.to_string())
+            .and_then(|result| result);
             scans.finish(&path, &sender, result);
         });
     }
@@ -89,7 +118,10 @@ pub(super) async fn read(path: PathBuf, mut progress: impl FnMut(Value)) -> Resu
         let snapshot = receiver.borrow_and_update().clone();
         if let Some(latest) = snapshot.latest { progress(latest); }
         if let Some(result) = snapshot.result { return result; }
-        receiver.changed().await.map_err(|_| "Battery reader stopped before returning a result")?;
+        receiver
+            .changed()
+            .await
+            .map_err(|_| "Battery reader stopped before returning a result")?;
     }
 }
 
