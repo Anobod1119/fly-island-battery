@@ -7,7 +7,7 @@ export type DeviceBatteryText = {
 export const zhCN: DeviceBatteryText = {
   title: "设备电量与音频", description: "查看无线设备电量，切换扬声器与耳机。音乐页也保留快捷入口。默认关闭。",
   deviceSettings: "设备设置",
-  receiverOnly: "已检测到接收器，尚未读到鼠标电量",
+  receiverOnly: "已检测到接收器，尚未读到电量",
   automatic: "设备选择自动保存，状态自动更新。",
   enabled: "启用插件", directory: "本地插件目录", directoryHint: "先运行 pnpm plugin:device-battery，再填入输出的插件目录。",
   save: "保存", saveFailed: "设置未能保存，请检查存储空间。", refresh: "刷新", refreshing: "读取中…",
@@ -18,7 +18,7 @@ export const zhCN: DeviceBatteryText = {
 export const en: DeviceBatteryText = {
   title: "Device battery & audio", description: "Read wireless-device batteries and switch speakers/headphones. Music also keeps a shortcut. Off by default.",
   deviceSettings: "Device settings",
-  receiverOnly: "Receiver detected; mouse battery unavailable",
+  receiverOnly: "Receiver detected. Battery level unavailable.",
   automatic: "Device selections are saved and refreshed automatically.",
   enabled: "Enable plugin", directory: "Local plugin folder", directoryHint: "Run pnpm plugin:device-battery, then enter the output folder.",
   save: "Save", saveFailed: "Could not save settings. Check available storage.", refresh: "Refresh", refreshing: "Reading…",

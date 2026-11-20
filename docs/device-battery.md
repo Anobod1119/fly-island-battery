@@ -7,13 +7,15 @@
 - 设置 → 设备：独立页面提供本地目录、启用开关、音频绑定 / 切换和电量列表；原插件页移除设备配置，已有配置原样保留。
 - 岛上 → 设备（耳机图标）：参考 MyFinder 双列设备卡片，显示大号电量 / 进度条、音源切换及设备设置入口；支持页面排序、记忆上次页面与 Ctrl + 滚轮切页。离开或收起该页即卸载查询。
 - 音乐页：只在启用时挂载紧凑控制条，电量详情为浮层，避免挤占歌词。
-- IPC：`device_battery_audio(directory, speakerId, headsetId, target)`、`device_battery_read(directory)`；无新增宿主权限、窗口、发布开关或版本号变更。
+- 电量扫描逐步显示已有读数。`device_battery_read(directory, progress?)` 支持查询过程中推送结果，返回值仍是最终快照。音频使用 `device_battery_audio(directory, speakerId, headsetId, target)`。
 - 音频绑定改变后立即查询，保留已有列表；原生音频查询等待上一条限时调用完成，避免重建界面后因忙而停留在空状态。电量与音频各自管理生命周期，改选绑定不会重查电量。音频每 5 秒及窗口获焦时更新，电量每 60 秒更新，关闭页面后停止后续查询。
 - 领域实现和 UI 可整体移除，接入点只有设备页 / 设置分类、音乐面板、Rust 组装和 i18n 汇总。
 
 ## 自测记录
 
-万灵 Mini Pro 8K（`36A7:A868`）接收器无有效电量回复时，保留带明确未知提示的卡片，避免“接收器已枚举但界面显示没有设备”。读取问题与显示修复边界见 [排查记录](investigations/wlmouse-a868.md)。
+万灵 Mini Pro 8K（`36A7:A868`）和 HyperX Cloud III S Wireless（`03F0:06BE`）接收器已连接但无有效电量回复时，保留带明确未知提示的卡片。读取问题与显示行为见 [排查记录](investigations/wlmouse-a868.md)。
+
+后续实机复测已从无线接收器取得鼠标 92%；改为逐步显示后约 1 秒收到读数，蓝牙超时仍单独报告。Cloud III S 接收器有连接状态回复，但尚无电量回复，不能视为电量读取成功。详见 [分批读取与耳机排查](investigations/device-battery-streaming.md)。
 
 2026-11-20，Windows x64：
 

@@ -205,7 +205,7 @@ Codex 会话摘要（2026-11-15）：`list_agent_sessions` 可选返回 `lastCom
 - 岛屿页面 / 页面顺序 / 上次打开的页面兼容新增 `devices`，启用设备插件时显示；已有页面顺序保持原有相对位置，缺少新页面的旧记录会追加该页面。设置定位请求兼容新增 `section=devices`。
 
 - localStorage：`focusd-island-device-battery`，对象字段 `enabled`、`directory`、`speakerId`、`headsetId`；缺字段或异常内容安全回退，默认关闭。
-- IPC：`device_battery_audio(directory, speakerId, headsetId, target)`，target 为 null / speaker / headset；`device_battery_read(directory)`。
+- IPC：`device_battery_audio(directory, speakerId, headsetId, target)`，target 为 null / speaker / headset。`device_battery_read(directory, progress?)` 返回最终读数，调用方可选传入 Tauri Channel 接收查询中的累积读数。
 - 电量设备对象兼容可选 `receiverOnly: true`，表示仅确认特定 USB 接收器存在、未取得无线鼠标电量；百分比 / 充电状态为 null，不代表无线连接在线。
 - 独立插件目录：`device-battery-plugin.json`（id=device-battery，version=1）、`device-battery-bridge.exe`、`engine/server.py`、`engine/runtime/python.exe`。
 - 不改变既有窗口 label、命令、事件和发布开关。

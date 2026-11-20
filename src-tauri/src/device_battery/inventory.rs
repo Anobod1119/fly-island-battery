@@ -1,19 +1,29 @@
 use serde_json::{json, Value};
 
 /// Retain a known receiver from the engine's sanitized inventory even when the
-/// wireless mouse has not answered. USB presence proves neither radio link nor charge.
+/// wireless device has not answered. USB presence proves neither radio link nor charge.
 pub(super) fn append_unread_receivers(devices: &mut Vec<Value>, snapshot: &Value) {
     let Some(inventory) = snapshot["unadapted"].as_array() else { return; };
     for candidate in inventory.iter().take(16) {
-        if candidate["vendorId"] != 0x36a7 || candidate["productId"] != 0xa868 { continue; }
-        let Some(name) = candidate["product"].as_str().filter(|name| name.to_ascii_uppercase().contains("WLMOUSE MINI PRO")) else { continue; };
-        let vendor_collection = candidate["collections"].as_array().is_some_and(|collections| collections.iter().any(|item| item["usagePage"] == 0xffff && item["usage"] == 0));
-        if !vendor_collection { continue; }
-        if devices.iter().any(|device| device["provider"] == "wlmouse"
-            || device["vendorId"] == 0x36a7 && device["productId"] == 0xa868) { continue; }
+        let Some(product) = candidate["product"].as_str() else { continue; };
+        let vendor = candidate["vendorId"].as_u64();
+        let pid = candidate["productId"].as_u64();
+        let (id, kind, provider, page, usage) = match (vendor, pid) {
+            (Some(0x36a7), Some(0xa868)) if product.eq_ignore_ascii_case("WLMOUSE MINI PRO 8K RECEIVER") =>
+                ("receiver-36a7-a868", "mouse", "wlmouse", 0xffff, 0),
+            (Some(0x03f0), Some(0x06be)) if product.eq_ignore_ascii_case("HyperX Cloud III S Wireless") =>
+                ("receiver-03f0-06be", "headset", "hyperx_cloud3s", 0x01c0, 1),
+            _ => continue,
+        };
+        let has_collection = candidate["collections"].as_array().is_some_and(|collections| {
+            collections.iter().any(|item| item["usagePage"] == page && item["usage"] == usage)
+        });
+        if !has_collection || devices.iter().any(|device| device["id"] == id
+            || kind == "mouse" && device["provider"] == "wlmouse"
+            || device["vendorId"].as_u64() == vendor && device["productId"].as_u64() == pid) { continue; }
         devices.push(json!({
-            "id": "receiver-36a7-a868", "name": name, "kind": "mouse",
-            "vendorId": 0x36a7, "productId": 0xa868, "provider": "wlmouse",
+            "id": id, "name": product, "kind": kind,
+            "vendorId": vendor, "productId": pid, "provider": provider,
             "percent": null, "charging": null, "measurementState": "unknown",
             "receiverOnly": true, "approximate": false
         }));
@@ -23,6 +33,18 @@ pub(super) fn append_unread_receivers(devices: &mut Vec<Value>, snapshot: &Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cloud_iii_s_receiver_stays_visible_without_a_battery_reply() {
+        let snapshot = json!({"unadapted":[{"vendorId":0x03f0,"productId":0x06be,"product":"HyperX Cloud III S Wireless",
+            "collections":[{"usagePage":0x01c0,"usage":1}]}]});
+        let mut devices = vec![];
+        append_unread_receivers(&mut devices, &snapshot);
+        assert_eq!(devices[0]["kind"], "headset");
+        assert!(devices[0]["percent"].is_null());
+        let mut measured = vec![json!({"vendorId":0x03f0,"productId":0x06be,"percent":84})];
+        append_unread_receivers(&mut measured, &snapshot);
+        assert_eq!(measured.len(), 1);
+    }
     fn snapshot() -> Value {
         json!({"unadapted":[{"vendorId":0x36a7,"productId":0xa868,"product":"WLMOUSE MINI PRO 8K RECEIVER",
             "collections":[{"usagePage":0xffff,"usage":0}]}]})

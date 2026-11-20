@@ -1,5 +1,6 @@
 import { act, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
+import type { Channel } from "@tauri-apps/api/core";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { I18nProvider, LOCALE_STORAGE_KEY, TRANSLATIONS } from "../../src/i18n";
 import { DeviceBatteryPanel } from "../../src/features/device-battery";
@@ -29,6 +30,8 @@ let current = "speaker-id";
 let failSwitch = false;
 let headsetAvailable = true;
 let audioDelay = 20;
+let completeBatteryRead: (() => void) | undefined;
+let holdBatteryRead = false;
 const audioBindings: string[] = [];
 mockIPC(async (command, payload) => {
   calls.push(command);
@@ -45,10 +48,17 @@ mockIPC(async (command, payload) => {
     return { OperationSucceeded: !failSwitch, ConsoleOutputId: current, Error: failSwitch ? "Switch failed; original output restored" : null,
       Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, { Id: "speaker-alt", Name: "Desk speakers", Flow: 0 }, ...(headsetAvailable ? [{ Id: "headset-id", Name: "Headphones", Flow: 0 }] : []), { Id: "mic", Name: "Microphone", Flow: 1 }] };
   }
-  if (command === "device_battery_read") return { devices: [
-    { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", kind: "mouse", percent: 72, approximate: true, measurementState: "cached" },
-    { id: "headset", name: "Headphones", kind: "headset", percent: null, measurementState: "unknown", receiverOnly: true },
-  ], errors: [] };
+  if (command === "device_battery_read") {
+    const mouse = { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", kind: "mouse", percent: 72, approximate: true, measurementState: "cached" };
+    if (holdBatteryRead) {
+      const { progress } = payload as { progress: Channel<unknown> };
+      progress.onmessage({ devices: [mouse], errors: [] });
+      await new Promise<void>((resolve) => { completeBatteryRead = resolve; });
+    }
+    return { devices: [mouse,
+      { id: "headset", name: "Headphones", kind: "headset", percent: null, measurementState: "unknown", receiverOnly: true },
+    ], errors: [] };
+  }
   throw new Error(`Unexpected command: ${command}`);
 }, { shouldMockEvents: true });
 const messages: string[] = [];
@@ -154,8 +164,13 @@ try {
   let deviceSettingsOpened = false;
   await act(async () => root.render(<StrictMode><I18nProvider><IslandDevicePreview onOpenSettings={() => { deviceSettingsOpened = true; }} /></I18nProvider></StrictMode>));
   const devicePageButton = document.querySelector<HTMLButtonElement>(".dot-button--devices")!;
+  holdBatteryRead = true;
   await act(async () => devicePageButton.click()); await wait();
   check(devicePageButton.getAttribute("aria-current") === "page", "the island header opens and selects the dedicated device page");
+  check(completeBatteryRead && document.querySelector(".device-dashboard__cards[aria-busy=true] [role=progressbar]"),
+    "the mouse reading appears while slower readers are still running");
+  holdBatteryRead = false;
+  await act(async () => completeBatteryRead?.()); await wait();
   check(document.querySelectorAll(".device-dashboard__card").length === 2 && document.querySelectorAll(".device-dashboard [role=progressbar]").length === 1,
     "island device page shows real battery cards and does not invent a bar for unknown percentages");
   check(document.querySelector(".device-dashboard")?.textContent?.includes(t.receiverOnly),

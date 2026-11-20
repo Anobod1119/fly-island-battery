@@ -1,8 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { normalizeAudio, normalizeBatteries, type AudioSnapshot, type BatterySnapshot, type DeviceBatterySettings } from "./model";
 
 const audioRequests = new Map<string, Promise<AudioSnapshot>>();
-const batteryRequests = new Map<string, Promise<BatterySnapshot>>();
+type BatteryListener = (value: BatterySnapshot) => void;
+const batteryRequests = new Map<string, {
+  result: Promise<BatterySnapshot>;
+  latest: BatterySnapshot | null;
+  listeners: Set<BatteryListener>;
+}>();
 
 // Rust: device_battery/mod.rs; underlying helper types: AudioReading and battery schema 2.
 export function readDeviceAudio(settings: DeviceBatterySettings, target: "speaker" | "headset" | null = null) {
@@ -15,10 +20,33 @@ export function readDeviceAudio(settings: DeviceBatterySettings, target: "speake
   audioRequests.set(key, request);
   return request;
 }
-export function readDeviceBatteries(directory: string) {
-  const current = batteryRequests.get(directory);
-  if (current) return current;
-  const request = invoke<unknown>("device_battery_read", { directory }).then(normalizeBatteries).finally(() => batteryRequests.delete(directory));
-  batteryRequests.set(directory, request);
-  return request;
+export async function readDeviceBatteries(directory: string, onProgress: BatteryListener) {
+  let request = batteryRequests.get(directory);
+  if (!request) {
+    const listeners = new Set<BatteryListener>();
+    const progress = new Channel<unknown>();
+    const pending = {
+      latest: null as BatterySnapshot | null,
+      listeners,
+      result: invoke<unknown>("device_battery_read", { directory, progress }).then(normalizeBatteries)
+        .finally(() => batteryRequests.delete(directory)),
+    };
+    progress.onmessage = (value) => {
+      pending.latest = normalizeBatteries(value);
+      for (const listener of listeners) listener(pending.latest);
+    };
+    request = pending;
+    batteryRequests.set(directory, request);
+  }
+  request.listeners.add(onProgress);
+  try {
+    if (request.latest) onProgress(request.latest);
+    const result = await request.result;
+    // A reader crash after progress must not discard the readings it already sent.
+    return result.errors.length && request.latest && !result.devices.length
+      ? { ...result, devices: request.latest.devices }
+      : result;
+  } finally {
+    request.listeners.delete(onProgress);
+  }
 }
