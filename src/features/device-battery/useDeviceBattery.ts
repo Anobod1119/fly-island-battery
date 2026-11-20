@@ -3,6 +3,7 @@ import { readDeviceAudio, readDeviceBatteries } from "./api";
 import type { AudioSnapshot, BatterySnapshot, DeviceBatterySettings } from "./model";
 
 export function useDeviceBattery(settings: DeviceBatterySettings, queryBattery = true) {
+  const { enabled, directory, speakerId, headsetId } = settings;
   const [audio, setAudio] = useState<AudioSnapshot | null>(null);
   const [battery, setBattery] = useState<BatterySnapshot | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -10,33 +11,43 @@ export function useDeviceBattery(settings: DeviceBatterySettings, queryBattery =
   const [audioError, setAudioError] = useState("");
   const [batteryError, setBatteryError] = useState("");
   const generation = useRef(0);
+  const batteryGeneration = useRef(0);
   const pending = useRef({ audio: -1, battery: -1 });
   const refreshAudio = useCallback(async (target: "speaker" | "headset" | null = null) => {
     const version = generation.current;
-    if (!settings.enabled || pending.current.audio === version) return;
+    if (!enabled || pending.current.audio === version) return;
     pending.current.audio = version; setAudioBusy(true);
     try {
-      const value = await readDeviceAudio(settings, target);
+      const value = await readDeviceAudio({ enabled, directory, speakerId, headsetId }, target);
       if (version === generation.current) { setAudio(value); setAudioError(value.error); }
     } catch (e) { if (version === generation.current) { setAudio(null); setAudioError(String(e)); } }
     finally { if (pending.current.audio === version) pending.current.audio = -1; if (version === generation.current) setAudioBusy(false); }
-  }, [settings]);
+  }, [enabled, directory, speakerId, headsetId]);
   const refreshBattery = useCallback(async () => {
-    const version = generation.current;
-    if (!settings.enabled || !queryBattery || pending.current.battery === version) return;
+    const version = batteryGeneration.current;
+    if (!enabled || !queryBattery || pending.current.battery === version) return;
     pending.current.battery = version; setBatteryBusy(true);
     try {
-      const value = await readDeviceBatteries(settings.directory);
-      if (version === generation.current) { setBattery(value); setBatteryError(value.errors.join(" · ")); }
-    } catch (e) { if (version === generation.current) { setBattery(null); setBatteryError(String(e)); } }
-    finally { if (pending.current.battery === version) pending.current.battery = -1; if (version === generation.current) setBatteryBusy(false); }
-  }, [settings, queryBattery]);
+      const value = await readDeviceBatteries(directory);
+      if (version === batteryGeneration.current) { setBattery(value); setBatteryError(value.errors.join(" · ")); }
+    } catch (e) { if (version === batteryGeneration.current) { setBattery(null); setBatteryError(String(e)); } }
+    finally { if (pending.current.battery === version) pending.current.battery = -1; if (version === batteryGeneration.current) setBatteryBusy(false); }
+  }, [enabled, directory, queryBattery]);
   useEffect(() => {
     const version = ++generation.current;
-    setAudio(null); setBattery(null); setAudioBusy(false); setBatteryBusy(false);
-    void refreshAudio(); void refreshBattery();
-    const timer = settings.enabled ? window.setInterval(() => { void refreshAudio(); void refreshBattery(); }, 60_000) : undefined;
-    return () => { generation.current = version + 1; window.clearInterval(timer); };
-  }, [settings, refreshAudio, refreshBattery]);
+    if (!enabled) { setAudio(null); setAudioError(""); }
+    void refreshAudio();
+    const timer = enabled ? window.setInterval(() => { void refreshAudio(); }, 5000) : undefined;
+    const onFocus = () => { void refreshAudio(); };
+    window.addEventListener("focus", onFocus);
+    return () => { generation.current = version + 1; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
+  }, [enabled, refreshAudio]);
+  useEffect(() => {
+    const version = ++batteryGeneration.current;
+    if (!enabled || !queryBattery) { setBattery(null); setBatteryError(""); }
+    void refreshBattery();
+    const timer = enabled && queryBattery ? window.setInterval(() => { void refreshBattery(); }, 60_000) : undefined;
+    return () => { batteryGeneration.current = version + 1; window.clearInterval(timer); };
+  }, [enabled, queryBattery, refreshBattery]);
   return { audio, battery, audioBusy, batteryBusy, audioError, batteryError, refreshAudio, refreshBattery };
 }

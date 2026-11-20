@@ -19,12 +19,17 @@ export function DeviceBatterySettings() {
   const [directory, setDirectory] = useState<string | null>(null);
   const [error, setError] = useState("");
   const save = (next: typeof settings) => { if (!saveDeviceBatterySettings(next)) setError(t.saveFailed); else setError(""); };
+  const saveDirectory = () => {
+    const next = (directory ?? settings.directory).trim();
+    save(next === settings.directory ? settings : { ...settings, directory: next, enabled: false, speakerId: "", headsetId: "" });
+    setDirectory(null);
+  };
   return <SettingsGroup title={t.title} footer={t.trust}>
     <SettingsToggleRow title={t.enabled} description={t.description} checked={settings.enabled} disabled={!settings.directory} onChange={(enabled) => save({ ...settings, enabled })} />
-    <SettingsRow title={t.directory} description={t.directoryHint} control={<SettingsLinkButton onClick={() => { save({ ...settings, directory: (directory ?? settings.directory).trim(), enabled: false, speakerId: "", headsetId: "" }); setDirectory(null); }}>{t.save}</SettingsLinkButton>}>
+    <SettingsRow title={t.directory} description={t.directoryHint} control={<SettingsLinkButton onClick={saveDirectory}>{t.save}</SettingsLinkButton>}>
       <SettingsInput aria-label={t.directory} value={directory ?? settings.directory} onChange={(e) => setDirectory(e.target.value)} />
     </SettingsRow>
-    {settings.enabled && <DeviceAudioBindings key={JSON.stringify(settings)} settings={settings} onSave={save} />}
+    {settings.enabled && <DeviceAudioBindings key={settings.directory} settings={settings} onSave={save} />}
     {error && <p role="alert">{error}</p>}
   </SettingsGroup>;
 }
@@ -33,8 +38,7 @@ function DeviceAudioBindings({ settings, onSave }: {
   onSave: (settings: ReturnType<typeof useDeviceBatterySettings>) => void;
 }) {
   const t = useTranslation().deviceBattery;
-  // The device page controls audio; battery polling belongs to the Music panel.
-  const { audio, audioBusy, audioError, refreshAudio } = useDeviceBattery(settings, false);
+  const { audio, audioBusy, audioError, refreshAudio, battery, batteryBusy, batteryError, refreshBattery } = useDeviceBattery(settings);
   const currentRole = AUDIO_ROLES.find((role) => settings[AUDIO_OUTPUTS[role]] && audio?.currentId === settings[AUDIO_OUTPUTS[role]]) ?? "";
   return <>
     {AUDIO_ROLES.map((role) => <SettingsRow key={role} title={t[role]} control={<SettingsSelect
@@ -42,7 +46,7 @@ function DeviceAudioBindings({ settings, onSave }: {
       disabled={audioBusy} options={[{ value: "", label: t.bind }, ...(audio?.devices ?? []).map((d) => ({ value: d.id, label: d.name }))]}
       onChange={(id) => { onSave({ ...settings, [AUDIO_OUTPUTS[role]]: id }); }}
     />} />)}
-    <SettingsRow title={t.switchOutput}>
+    <SettingsRow title={t.switchOutput} description={t.automatic}>
       <SettingsChoice ariaLabel={t.switchOutput} value={currentRole}
         options={AUDIO_ROLES.map((role) => ({
           value: role, label: t[role], disabled: audioBusy || !audio?.devices.some((device) => device.id === settings[AUDIO_OUTPUTS[role]]),
@@ -53,5 +57,11 @@ function DeviceAudioBindings({ settings, onSave }: {
     <SettingsRow title={t.current} description={audio?.devices.find((d) => d.id === audio.currentId)?.name ?? t.unknown}
       control={<SettingsLinkButton disabled={audioBusy} onClick={() => { void refreshAudio(); }}>{t.refresh}</SettingsLinkButton>} />
     {audioError && <p role="alert">{audioError}</p>}
+    <SettingsRow title={t.batteries} control={<SettingsLinkButton disabled={batteryBusy} onClick={() => { void refreshBattery(); }}>{batteryBusy ? t.refreshing : t.refresh}</SettingsLinkButton>} />
+    {battery?.devices.map((device) => <SettingsRow key={device.id} title={device.name}
+      description={[device.receiverOnly ? t.receiverOnly : "", device.state === "cached" ? t.cached : "", device.unconfirmed ? t.unconfirmed : "", device.charging === true ? t.charging : ""].filter(Boolean).join(" · ")}
+      control={<span>{device.percent === null ? t.unknown : `${device.approximate ? "≈" : ""}${device.percent}%`}</span>} />)}
+    {!battery?.devices.length && <SettingsRow title={batteryBusy ? t.refreshing : t.empty} />}
+    {batteryError && <p role="alert">{batteryError}</p>}
   </>;
 }

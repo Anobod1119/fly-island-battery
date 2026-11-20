@@ -18,6 +18,7 @@ import type { IslandSettings } from "../../features/appearance/types";
 import { ClipboardHistoryPanel } from "../../features/clipboard/ClipboardHistoryPanel";
 import type { useClipboardHistory } from "../../features/clipboard/useClipboardHistory";
 import { MusicPlayerPanel } from "../../features/media/MusicPlayerPanel";
+import { DeviceDashboard } from "../../features/device-battery";
 import type { useMediaState } from "../../features/media/useMediaState";
 import { FileShelfPanel } from "../../features/file-shelf/FileShelfPanel";
 import type { useFileShelf } from "../../features/file-shelf/useFileShelf";
@@ -117,6 +118,7 @@ export function IslandPages({
       )}
       {page === "music" && (
         <MusicPlayerPanel
+          isOpen={mode === "expanded"}
           mediaState={mediaState}
           isTrackChanging={isMediaTrackChanging}
           commandError={mediaCommandError}
@@ -129,6 +131,7 @@ export function IslandPages({
           lyricsSettings={settings}
         />
       )}
+      {page === "devices" && mode === "expanded" && <DeviceDashboard onOpenSettings={() => openSettingsWindow("devices")} />}
       {page === "clipboard" && (
         <ClipboardHistoryPanel
           snapshot={clipboardHistory}

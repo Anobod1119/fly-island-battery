@@ -22,6 +22,8 @@ import { MediaNotice, MediaNoticeButton, useMediaNotice } from "./MediaNotice";
 const NO_LYRICS = { lyricsFolder: "", lyricsOnline: false, lyricsOffsetMs: 0 };
 
 type MusicPlayerPanelProps = {
+  /** Stops optional device queries when the island is collapsed. */
+  isOpen?: boolean;
   mediaState: MediaState;
   isTrackChanging: boolean;
   commandError: string | null;
@@ -46,6 +48,7 @@ type MusicPlayerPanelProps = {
  * not an empty player.
  */
 export function MusicPlayerPanel({
+  isOpen = true,
   mediaState,
   isTrackChanging,
   commandError,
@@ -157,7 +160,7 @@ export function MusicPlayerPanel({
           </button>
         </div>
       )}
-      <DeviceBatteryPanel />
+      <DeviceBatteryPanel active={isOpen} />
     </section>
   );
 }

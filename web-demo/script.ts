@@ -8,6 +8,7 @@ import type { DemoContent } from "./demoData";
 export const PAGE_BUTTONS: Record<IslandPage, string> = {
   todo: ".dot-button--todo",
   music: ".dot-button--music",
+  devices: ".dot-button--devices",
   clipboard: ".dot-button--clipboard",
   shelf: ".dot-button--shelf",
   // A page button since messages joined the page row; the header button before that.

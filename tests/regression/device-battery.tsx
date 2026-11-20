@@ -1,13 +1,18 @@
-import { act, StrictMode } from "react";
+import { act, StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { I18nProvider, LOCALE_STORAGE_KEY, TRANSLATIONS } from "../../src/i18n";
-import { DeviceBatteryPanel, DeviceBatterySettings } from "../../src/features/device-battery";
+import { DeviceBatteryPanel } from "../../src/features/device-battery";
+import { DeviceDashboard } from "../../src/features/device-battery";
+import { DevicesSettingsPage } from "../../src/windows/settings/DevicesSettingsPage";
 import { MusicPlayerPanel } from "../../src/features/media/MusicPlayerPanel";
 import { DEFAULT_MEDIA_STATE } from "../../src/features/media/mediaState";
+import { IslandHeader } from "../../src/windows/island/IslandHeader";
+import type { IslandPage } from "../../src/windows/island/types";
 import { DEVICE_BATTERY_KEY, saveDeviceBatterySettings } from "../../src/features/device-battery/storage";
 import "../../src/styles/tokens.css";
 import "../../src/styles/base.css";
+import "../../src/windows/island/IslandApp.css";
 
 Object.assign(globalThis, { isTauri: true, IS_REACT_ACT_ENVIRONMENT: true });
 const params = new URLSearchParams(location.search);
@@ -23,6 +28,8 @@ const calls: string[] = [];
 let current = "speaker-id";
 let failSwitch = false;
 let headsetAvailable = true;
+let audioDelay = 20;
+const audioBindings: string[] = [];
 mockIPC(async (command, payload) => {
   calls.push(command);
   await new Promise((resolve) => setTimeout(resolve, 20));
@@ -32,13 +39,15 @@ mockIPC(async (command, payload) => {
   if (command === "plugin:event|listen") return 1;
   if (command === "plugin:event|unlisten") return null;
   if (command === "device_battery_audio") {
+    audioBindings.push(String((payload as { speakerId: string }).speakerId));
+    await new Promise((resolve) => setTimeout(resolve, audioDelay));
     if (args.target && !failSwitch) current = `${args.target}-id`;
     return { OperationSucceeded: !failSwitch, ConsoleOutputId: current, Error: failSwitch ? "Switch failed; original output restored" : null,
-      Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, ...(headsetAvailable ? [{ Id: "headset-id", Name: "Headphones", Flow: 0 }] : []), { Id: "mic", Name: "Microphone", Flow: 1 }] };
+      Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, { Id: "speaker-alt", Name: "Desk speakers", Flow: 0 }, ...(headsetAvailable ? [{ Id: "headset-id", Name: "Headphones", Flow: 0 }] : []), { Id: "mic", Name: "Microphone", Flow: 1 }] };
   }
   if (command === "device_battery_read") return { devices: [
-    { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", percent: 72, approximate: true, measurementState: "cached" },
-    { id: "headset", name: "Headphones", percent: null, measurementState: "unknown" },
+    { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", kind: "mouse", percent: 72, approximate: true, measurementState: "cached" },
+    { id: "headset", name: "Headphones", kind: "headset", percent: null, measurementState: "unknown", receiverOnly: true },
   ], errors: [] };
   throw new Error(`Unexpected command: ${command}`);
 }, { shouldMockEvents: true });
@@ -47,7 +56,18 @@ const root = createRoot(document.getElementById("fixture")!);
 const settings = { enabled: true, directory: "D:\\test-plugin", speakerId: "speaker-id", headsetId: "headset-id" };
 function check(condition: unknown, label: string) { if (!condition) throw new Error(label); messages.push(`PASS ${label}`); }
 const wait = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 70)); });
-const render = (showSettings = false) => act(async () => root.render(<StrictMode><I18nProvider>{showSettings ? <DeviceBatterySettings /> : <DeviceBatteryPanel />}</I18nProvider></StrictMode>));
+const render = (showSettings = false) => act(async () => root.render(<StrictMode><I18nProvider>{showSettings ? <DevicesSettingsPage /> : <DeviceBatteryPanel />}</I18nProvider></StrictMode>));
+function IslandDevicePreview({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [page, setPage] = useState<IslandPage>("music");
+  const noop = () => {};
+  return <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+    <IslandHeader isExpanded page={page} features={{ todo: false, music: false, devices: true, clipboard: false, shelf: false, qq: false, wechat: false, qqMail: false, agents: false, translation: false }}
+      pageOrder={["devices"]} pageButtonStyle="icon" onPageOrderChange={noop} showTitle={false} isDetached={false}
+      agentVisualState="idle" agentStatusLabel="" qqNotificationCount={0} wechatPending={false} officePending={null}
+      onPageChange={setPage} onCollapse={noop} onOpenSettings={onOpenSettings} onOpenMessages={noop} onOpenTranslator={null} onResetPosition={noop} minimizesToTray={false} onMinimize={noop} />
+    <div style={{ flex: 1, minHeight: 0 }}>{page === "devices" && <DeviceDashboard onOpenSettings={onOpenSettings} />}</div>
+  </div>;
+}
 try {
   saveDeviceBatterySettings({ ...settings, enabled: false });
   await render(); await wait();
@@ -73,8 +93,28 @@ try {
   await act(async () => { saveDeviceBatterySettings(settings); });
   await render(true); await wait();
   check(document.body.textContent?.includes(t.speaker) && document.body.textContent?.includes(t.headset), "settings exposes both localized bindings");
-  check(calls.filter((call) => call === "device_battery_read").length <= 2, "binding settings does not poll batteries");
+  check(document.body.textContent?.includes(t.batteries) && document.body.textContent?.includes("≈72%"), "dedicated device page displays battery readings and audio controls together");
   const batteryCalls = calls.filter((call) => call === "device_battery_read").length;
+  const chooseSpeaker = async (id: string) => {
+    await act(async () => document.querySelector<HTMLButtonElement>(`[role=combobox][aria-label='${t.speaker}']`)!.click());
+    await act(async () => document.querySelector<HTMLElement>(`[role=option][data-value='${id}']`)!.click());
+  };
+  audioDelay = 120;
+  await chooseSpeaker("speaker-alt");
+  check(document.querySelector(`[role=combobox][aria-label='${t.speaker}']`)?.textContent?.includes("Desk speakers")
+    && document.body.textContent?.includes("≈72%"), "binding change keeps the selected label, output list and battery readings visible");
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 190)); });
+  check(audioBindings[audioBindings.length - 1] === "speaker-alt" && !document.querySelector<HTMLButtonElement>(`[role=combobox][aria-label='${t.headset}']`)!.disabled,
+    "new binding is queried automatically without pressing Refresh");
+  await chooseSpeaker("speaker-id");
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 190)); });
+  check(audioBindings[audioBindings.length - 1] === "speaker-id" && calls.filter((call) => call === "device_battery_read").length === batteryCalls,
+    "repeated binding changes refresh audio automatically without restarting battery polling");
+  const beforeSave = localStorage.getItem(DEVICE_BATTERY_KEY);
+  await act(async () => [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === t.save)!.click()); await wait();
+  check(localStorage.getItem(DEVICE_BATTERY_KEY) === beforeSave && document.querySelector(`[role=group][aria-label='${t.switchOutput}']`),
+    "saving the same plugin directory preserves enabled state and device bindings");
+  audioDelay = 20;
   const choices = document.querySelectorAll<HTMLButtonElement>(`[role=group][aria-label='${t.switchOutput}'] button`);
   check(choices.length === 2 && choices[1].getAttribute("aria-pressed") === "true", "device page exposes switches with the verified current output selected");
   await act(async () => choices[0].click());
@@ -93,7 +133,7 @@ try {
   await act(async () => choices[1].click()); await wait();
   check(choices[1].disabled && calls.length === beforeOfflineClick, "device page disables a bound output that is no longer active");
   check(calls.filter((call) => call === "device_battery_read").length === batteryCalls && fixture.scrollWidth <= fixture.clientWidth,
-    "device-page switching does not poll batteries or overflow the narrow layout");
+    "device-page audio switching does not restart battery polling or overflow the narrow layout");
   headsetAvailable = true;
   fixture.style.width = params.has("narrow") ? "300px" : "520px";
   fixture.style.height = "234px";
@@ -107,6 +147,25 @@ try {
   const bar = document.querySelector<HTMLElement>(".device-battery")!;
   check(musicButtons.getBoundingClientRect().bottom <= fixture.getBoundingClientRect().bottom + 1, "transport controls stay inside the 234px music page");
   check(bar.getBoundingClientRect().bottom <= fixture.getBoundingClientRect().bottom + 1 && fixture.scrollWidth <= fixture.clientWidth, "enabled plugin fits the music page without horizontal overflow");
+  const beforeHidden = calls.length;
+  await act(async () => root.render(<StrictMode><I18nProvider><DeviceBatteryPanel active={false} /></I18nProvider></StrictMode>)); await wait();
+  check(!document.querySelector(".device-battery") && calls.length === beforeHidden, "collapsed music shortcuts stop device queries");
+  fixture.style.height = "334px";
+  let deviceSettingsOpened = false;
+  await act(async () => root.render(<StrictMode><I18nProvider><IslandDevicePreview onOpenSettings={() => { deviceSettingsOpened = true; }} /></I18nProvider></StrictMode>));
+  const devicePageButton = document.querySelector<HTMLButtonElement>(".dot-button--devices")!;
+  await act(async () => devicePageButton.click()); await wait();
+  check(devicePageButton.getAttribute("aria-current") === "page", "the island header opens and selects the dedicated device page");
+  check(document.querySelectorAll(".device-dashboard__card").length === 2 && document.querySelectorAll(".device-dashboard [role=progressbar]").length === 1,
+    "island device page shows real battery cards and does not invent a bar for unknown percentages");
+  check(document.querySelector(".device-dashboard")?.textContent?.includes(t.receiverOnly),
+    "a detected receiver without a battery reply stays visible with an explicit status");
+  const dashboardOutputs = document.querySelectorAll<HTMLButtonElement>(".device-dashboard__outputs button");
+  await act(async () => dashboardOutputs[0].click()); await wait();
+  check(current === "speaker-id" && dashboardOutputs[0].getAttribute("aria-pressed") === "true", "island device page switches outputs and reflects native readback");
+  await act(async () => document.querySelector<HTMLButtonElement>(".device-dashboard__footer button:last-child")!.click());
+  check(deviceSettingsOpened && fixture.scrollWidth <= fixture.clientWidth && document.querySelector(".device-dashboard")!.getBoundingClientRect().bottom <= fixture.getBoundingClientRect().bottom + 1,
+    "island device page opens its settings and fits both narrow and full island layouts");
   document.documentElement.dataset.testResult = "passed";
   document.getElementById("results")!.textContent = [...messages, "ALL PASS"].join("\n");
 } catch (error) {

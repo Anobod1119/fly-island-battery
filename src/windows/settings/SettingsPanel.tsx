@@ -63,6 +63,7 @@ export function SettingsPanel({
     if (section === "savePath") focusSavePath();
     if (section === "translation") setCategory("translation");
     if (section === "music") setCategory("music");
+    if (section === "devices") setCategory("devices");
     if (section === "mail") setCategory("messages");
     if (section === "updates") setCategory("about");
   }, [focusSavePath]);

@@ -19,7 +19,12 @@ function subscribe(listener: () => void) {
   const storage = (event: StorageEvent) => { if (event.key === null || event.key === DEVICE_BATTERY_KEY) listener(); };
   window.addEventListener("storage", storage);
   window.addEventListener(CHANGE, listener);
-  return () => { window.removeEventListener("storage", storage); window.removeEventListener(CHANGE, listener); };
+  window.addEventListener("focus", listener);
+  document.documentElement.addEventListener("pointerenter", listener);
+  return () => {
+    window.removeEventListener("storage", storage); window.removeEventListener(CHANGE, listener);
+    window.removeEventListener("focus", listener); document.documentElement.removeEventListener("pointerenter", listener);
+  };
 }
 export function useDeviceBatterySettings() { return useSyncExternalStore(subscribe, snapshot, () => DEFAULT_DEVICE_BATTERY); }
 export function saveDeviceBatterySettings(settings: DeviceBatterySettings) {

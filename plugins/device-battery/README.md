@@ -1,6 +1,6 @@
 # 设备电量与音频 / Device battery & audio
 
-Fly Island 源码插件：音乐页增加扬声器 / 耳机切换和无线设备电量。默认关闭，在「设置 → 插件 → 设备电量与音频」配置；它独立于尚未上线的 AI 数据接入插件市场，不改变 `release-features.json`。
+Fly Island 源码插件：岛上和设置各有独立「设备」页，集中查看无线电量并切换扬声器 / 耳机，音乐页保留快捷入口。岛上使用用户指定的 MyFinder 双列设备卡片作为布局参考。默认关闭；它独立于尚未上线的 AI 数据接入插件市场，不改变 `release-features.json`。
 
 ## 构建与使用
 
@@ -13,9 +13,9 @@ pnpm tauri dev
 ```
 
 1. 复制构建输出的绝对目录（默认 `artifacts/device-battery`）。
-2. 在「设置 → 插件」的本地插件目录中粘贴、保存，再启用。
+2. 在「设置 → 设备」的本地插件目录中粘贴、保存，再启用。原先保存在插件页的目录、开关与绑定会继续使用。
 3. 从活动音频输出中分别绑定扬声器和耳机；不自动猜测设备，不修改麦克风。
-4. 在设备设置的「切换输出」中直接选择扬声器 / 耳机；音乐页保留相同的切换入口。音乐页点击电量按钮展开设备列表，刷新按钮重新查询。
+4. 展开小岛，点顶部耳机图标进入「设备」页，查看电量卡片、切换音源，或点「设备设置」回到绑定页。设备页的绑定选择自动保存 / 更新，无需手动刷新；重复保存相同目录保留开关和绑定。音乐页也保留快捷入口。
 5. 关闭插件即隐藏音乐页入口并停止后续查询。已开始的单次读取最多约 62 秒内结束；宿主退出时查询进程及其子进程一并结束。
 
 这是可关闭的源码集成与本地独立插件包，尚未发布到在线市场，不支持直接用现有 JSON-RPC「本地插件目录」加载。需要另一个小岛安装使用时，复制**整个**输出文件夹，在新的设备插件设置中指定该目录。仅信任自己的构建或可信来源；目录内程序具有当前用户权限。
@@ -27,13 +27,13 @@ pnpm tauri dev
 - 上游：`wushuai0802/myfinder-device-battery`，固定提交 `73d99e2087dd70ae8eef4199854e0c495a66f0bc`（本地提供的源码）。`upstream/engine/`、三个 C# 读取 / 控制文件和两个构建辅助脚本原样保留。
 - `SOURCE.json` 记录 151 个上游文件的 SHA-256；另保留原测试依赖的 `upstream/tests/test_engine_reliability.py`。离线协议自测运行 `powershell.exe -NoProfile -File plugins/device-battery/test.ps1`。
 - 新增 `Bridge.cs` 和最小音频绑定类：只开放查询、枚举、音源切换；不开放 DPI、固件、配对、更新、托盘或自启接口。不读 MyFinder 用户配置。
-- `src/features/device-battery/`：设置持久化、请求、状态与音乐页 UI。`src-tauri/src/device_battery/`：固定入口、参数检查、互斥、输出上限与进程树超时回收。
-- 原有文件接入点：`PluginsSettingsPage.tsx`、`MusicPlayerPanel.tsx`、`src-tauri/src/lib.rs`、i18n 汇总和构建 / 测试入口。
+- `src/features/device-battery/`：设置持久化、请求、状态、岛上 `DeviceDashboard` 卡片页与音乐页 UI。`src-tauri/src/device_battery/`：固定入口、参数检查、互斥、输出上限与进程树超时回收。
+- 原有文件接入点：设置分类 / 侧栏 / `SettingsPanel.tsx`、`MusicPlayerPanel.tsx`、`src-tauri/src/lib.rs`、i18n 汇总和构建 / 测试入口。设备页由 `DevicesSettingsPage.tsx` 组合，原插件页不再挂载设备功能。
 - 插件目录由用户显式指定；后端只调用其中固定名称的 helper 和便携 Python，以参数数组启动、不经 shell。
 
 音频切换沿用上游：只改变 Console 和 Multimedia 默认输出，读回核验，失败尝试恢复，Communications 与录音默认设备保持不变。绑定端点不在活动列表时按钮禁用。音频端点在线不代表无线耳机已开机。
 
-设备协议、型号限制和验证等级沿用上游，不保证全品牌全系列；未知值保留为未知，历史值和估算单独标记。只在音乐页显示时按 60 秒间隔读取；设置只枚举音频。引擎单次进程不保留跨轮设备缓存，系统自身缓存依然可能存在。多个窗口同时查询由后端互斥保护，忙时需重试。
+设备协议、型号限制和验证等级沿用上游，不保证全品牌全系列；未知值保留为未知，历史值和估算单独标记。只在设备页 / 音乐页显示时读取，电量间隔 60 秒；音频每 5 秒、窗口获得焦点和绑定改变后自动检查。改选音频不会重启电量查询或清空已有列表。引擎单次进程不保留跨轮设备缓存，系统自身缓存依然可能存在。多个窗口的音频查询由后端依次处理，避免重叠导致“忙”后需要手动刷新。
 
 ## 文件、网络与许可
 
@@ -45,8 +45,8 @@ pnpm tauri dev
 
 ## English
 
-An optional Fly Island source plugin adds speaker/headphone switching and wireless-device battery readings to Music. Build with `pnpm plugin:device-battery`, save the generated folder under Settings → Plugins → Device battery & audio, enable it and bind two active outputs. Switch directly from the device settings' Switch output buttons or the Music toolbar. Click the battery indicator for device details. Default is off; the existing JSON-RPC loader and release flags are unchanged. This local package has not been published to the online market.
+An optional Fly Island source plugin adds dedicated Devices pages to the island and Settings. The island's headphone button opens a grid of device battery cards based on the supplied MyFinder UI reference, with output switching and a link to configuration. Music keeps its shortcut. Build with `pnpm plugin:device-battery`, save the generated folder under Settings → Devices, enable it and bind two active outputs. Existing preferences are preserved. Binding changes automatically refresh audio without clearing the device list or restarting battery reads. Saving an unchanged folder preserves bindings. Default is off; the existing JSON-RPC loader and release flags are unchanged. This local package has not been published to the online market.
 
 The independent headless bridge preserves the pinned MyFinder implementation and licenses. It exposes only audio enumeration/switching and battery queries, with verified audio readback, rollback, timeouts and owned process-tree cleanup. It preserves communications/recording defaults and never launches the MyFinder UI. Unknown values are not fabricated; estimates and cached readings are labelled. Hardware support and verification limits remain those of the upstream source.
 
-Only visible panels poll (60 seconds); disabling prevents subsequent queries. Active one-shot reads can take up to approximately 62 seconds. Runtime operations are offline. The initial build downloads hash-pinned Python/hidapi and verifies the Python signature. Copy the complete output directory for another installation; load only trusted local code. Generated binaries, runtimes and downloads are excluded from Git. Keep the AGPL and MIT notices/source obligations when distributing the plugin.
+Only visible panels poll: batteries every 60 seconds, audio every 5 seconds and on focus/binding changes. Disabling prevents subsequent queries. Overlapping audio queries wait for the previous timed operation. Active battery reads can take up to approximately 62 seconds. Runtime operations are offline. The initial build downloads hash-pinned Python/hidapi and verifies the Python signature. Copy the complete output directory for another installation; load only trusted local code. Generated binaries, runtimes and downloads are excluded from Git. Keep the AGPL and MIT notices/source obligations when distributing the plugin.

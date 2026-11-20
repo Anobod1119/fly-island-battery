@@ -4,6 +4,7 @@ import type { MessageView } from "../../features/messages/Messages";
 import type { MailController } from "../../features/messages/mail/MailPanel";
 import { islandPageFor, resolveIslandPage, resolveMessageSource, type IslandFeatures } from "./features";
 import type { IslandPage } from "./types";
+import { useDeviceBatterySettings } from "../../features/device-battery";
 
 type IslandFeatureOptions = {
   settings: IslandSettings;
@@ -38,6 +39,7 @@ export function useIslandFeatures({
 }: IslandFeatureOptions) {
   const plugins = usePlugins();
   const office = useOfficeSources();
+  const devices = useDeviceBatterySettings();
   const hasPluginMessages = Object.values(plugins.registry.installed).some((p) => p.enabled && p.manifest.contributes.includes("notifications"));
   const features = useMemo<IslandFeatures>(() => ({
     plugin: hasPluginMessages,
@@ -46,6 +48,7 @@ export function useIslandFeatures({
     wecom: office.wecom,
     todo: settings.todoEnabled,
     music: settings.musicEnabled,
+    devices: devices.enabled,
     clipboard: clipboardEnabled,
     shelf: settings.shelfEnabled,
     qq: qqEnabled,
@@ -53,7 +56,7 @@ export function useIslandFeatures({
     qqMail: settings.mailEnabled,
     agents: settings.agentStatusEnabled,
     translation: settings.translationEnabled && settings.translationTarget === "island",
-  }), [clipboardEnabled, qqEnabled, settings.agentStatusEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled, hasPluginMessages, office.dingtalk, office.feishu, office.wecom]);
+  }), [clipboardEnabled, qqEnabled, settings.agentStatusEnabled, settings.mailEnabled, settings.musicEnabled, settings.shelfEnabled, settings.todoEnabled, settings.translationEnabled, settings.translationTarget, wechatEnabled, hasPluginMessages, office.dingtalk, office.feishu, office.wecom, devices.enabled]);
 
   useEffect(() => {
     const next = islandPageFor(page, features, settings.clipboardDetached);

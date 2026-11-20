@@ -40,3 +40,4 @@
 - [剪贴板历史](docs/design/clipboard.md)
 - [文件中转](docs/design/file-shelf.md)
 - [音乐页](docs/design/music.md)
+- [设备页](docs/design/devices.md)

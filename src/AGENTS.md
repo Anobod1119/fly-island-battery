@@ -13,7 +13,7 @@ src/
 │   ├── clipboard/           # 剪贴板历史独立窗口：自绘标题栏（拖动、图钉置顶、关闭），内容复用 features/clipboard 的面板
 │   └── translation/         # 快捷翻译窗口
 ├── features/                # 业务领域，每个领域自包含
-│   ├── device-battery/      # 可选本地设备插件：音频端点绑定 / 切换、电量、设置持久化；由独立设备页和音乐页接入
+│   ├── device-battery/      # 可选本地设备插件：DeviceDashboard 为岛上设备卡片页，独立设置页管理绑定；音频 / 电量独立更新，音乐页保留快捷入口
 │   ├── todos/               # 待办、每日笔记、归档、Markdown 导出
 │   ├── media/               # 媒体控制、波形、播放器诊断卡片与兼容性设置；lyrics/ 为同步歌词（解析 LRC、跟随进度、点击校准、设置项）
 │   ├── clipboard/           # 剪贴板历史、快捷键

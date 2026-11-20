@@ -5,9 +5,9 @@ import { useDeviceBattery } from "./useDeviceBattery";
 import type { DeviceBatterySettings } from "./model";
 import "./DeviceBatteryPanel.css";
 
-export function DeviceBatteryPanel() {
+export function DeviceBatteryPanel({ active = true }: { active?: boolean }) {
   const settings = useDeviceBatterySettings();
-  return settings.enabled ? <ActiveDeviceBatteryPanel key={JSON.stringify(settings)} settings={settings} /> : null;
+  return settings.enabled && active ? <ActiveDeviceBatteryPanel key={settings.directory} settings={settings} /> : null;
 }
 function ActiveDeviceBatteryPanel({ settings }: { settings: DeviceBatterySettings }) {
   const t = useTranslation().deviceBattery;
@@ -36,6 +36,7 @@ function ActiveDeviceBatteryPanel({ settings }: { settings: DeviceBatterySetting
               {device.charging === true && <span className="device-battery__meta">{t.charging}</span>}
               {device.state === "cached" && <span className="device-battery__meta">{t.cached}</span>}
               {device.unconfirmed && <span className="device-battery__meta">{t.unconfirmed}</span>}
+              {device.receiverOnly && <span className="device-battery__meta">{t.receiverOnly}</span>}
             </li>)}
           </ul>
           {!state.battery?.devices.length && <p className="device-battery__meta" role="status">{state.batteryBusy ? t.refreshing : t.empty}</p>}

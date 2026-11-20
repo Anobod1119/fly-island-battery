@@ -46,7 +46,7 @@ main.tsx → windows/ → features/ → components/、lib/、utils/、i18n/、st
 
 ## 其他文档
 
-设备电量与音频源码插件集中在 `features/device-battery/`、`src-tauri/src/device_battery/` 与 `plugins/device-battery/`；独立的 `windows/settings/DevicesSettingsPage.tsx` 组合设备设置 / 电量，音乐页保留可关闭快捷入口。独立进程复用 MyFinder 读取器。宿主不常驻启动它，插件包单独构建并由用户指定目录。参见 [设备插件](../device-battery.md)。
+设备电量与音频源码插件集中在 `features/device-battery/`、`src-tauri/src/device_battery/` 与 `plugins/device-battery/`；`DeviceDashboard` 是岛上独立设备卡片页，`windows/settings/DevicesSettingsPage.tsx` 组合设备设置 / 电量，音乐页保留可关闭快捷入口。导航胶囊随插件启用状态显示，设备页收起时卸载查询；音频 / 电量分别轮询，绑定改变保留已读数据，后端串行执行音频调用。独立进程复用 MyFinder 读取器，插件包单独构建并由用户指定目录。参见 [设备插件](../device-battery.md)。
 
 - [data-storage.md](data-storage.md)：每项数据存在哪里、由哪个模块负责
 - [contracts.md](contracts.md)：对外契约清单（localStorage key、事件、命令与文件格式）

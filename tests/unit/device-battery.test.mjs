@@ -27,3 +27,10 @@ test("unknown and invalid percentages never turn into zero or full charge", () =
   assert.equal(result.devices[0].charging, null);
   assert.deepEqual(result.errors, ["offline"]);
 });
+
+test("receiver detection remains separate from a battery reading", () => {
+  const result = normalizeBatteries({ devices: [{ id: "receiver", name: "WLMOUSE MINI PRO 8K RECEIVER", receiverOnly: true, percent: null, charging: null, measurementState: "unknown" }] });
+  assert.equal(result.devices[0].receiverOnly, true);
+  assert.equal(result.devices[0].percent, null);
+  assert.equal(result.devices[0].charging, null);
+});

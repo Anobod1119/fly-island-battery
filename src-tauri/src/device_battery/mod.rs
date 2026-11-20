@@ -1,5 +1,6 @@
 //! Optional local, headless MyFinder-derived plugin; no worker runs on application startup.
 mod process;
+mod inventory;
 use serde_json::{json, Value};
 use std::{path::{Path, PathBuf}, sync::Mutex};
 
@@ -16,7 +17,9 @@ fn plugin_directory(directory: &str) -> Result<PathBuf, String> {
 }
 
 fn audio(directory: String, speaker_id: String, headset_id: String, target: Option<String>) -> Result<Value, String> {
-    let _guard = AUDIO_QUERY.try_lock().map_err(|_| "An audio operation is already in progress")?;
+    // Binding changes and reads from another window can overlap. Each bridge call
+    // has a timeout; wait for the prior call instead of leaving the UI stale on "busy".
+    let _guard = AUDIO_QUERY.lock().map_err(|_| "Audio reader is unavailable")?;
     let path = plugin_directory(&directory)?;
     if speaker_id.len() > 4096 || headset_id.len() > 4096 { return Err("Audio binding is too long".into()); }
     let mut args = vec![if target.is_some() { "switch" } else { "audio" }.to_string(), speaker_id, headset_id];
@@ -38,6 +41,7 @@ fn merge(native: Value, generic: Result<Value, String>) -> Value {
     match generic {
         Ok(value) => {
             devices.extend(value["devices"].as_array().cloned().unwrap_or_default());
+            inventory::append_unread_receivers(&mut devices, &value);
             if let Some(list) = value["errors"].as_array() { errors.extend(list.iter().filter_map(Value::as_str).map(str::to_owned)); }
         }
         Err(error) => errors.push(error),
@@ -108,5 +112,25 @@ mod tests {
         assert_eq!(result["packageSmoke"], true);
         assert!(result["providerCount"].as_u64().unwrap() > 0);
         assert_eq!(result["errors"], json!([]));
+    }
+    #[test]
+    #[ignore = "Requires locally built plugin; set FLY_ISLAND_DEVICE_BATTERY_TEST_DIR"]
+    fn local_overlapping_audio_reads_both_complete() {
+        let directory = std::env::var("FLY_ISLAND_DEVICE_BATTERY_TEST_DIR").unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
+        std::thread::scope(|scope| {
+            let readers: Vec<_> = (0..2).map(|_| {
+                let barrier = barrier.clone();
+                let directory = directory.clone();
+                scope.spawn(move || {
+                    barrier.wait();
+                    audio(directory, String::new(), String::new(), None)
+                })
+            }).collect();
+            barrier.wait();
+            for reader in readers {
+                assert!(reader.join().unwrap().unwrap()["Devices"].is_array());
+            }
+        });
     }
 }

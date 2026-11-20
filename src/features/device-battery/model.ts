@@ -11,7 +11,7 @@ export function normalizeDeviceBatterySettings(value: unknown): DeviceBatterySet
 }
 // Projections of the headless helper's AudioReading and engine schema-2 devices.
 export type AudioSnapshot = { currentId: string; succeeded: boolean; error: string; devices: { id: string; name: string }[] };
-export type BatteryDevice = { id: string; name: string; percent: number | null; charging: boolean | null; approximate: boolean; unconfirmed: boolean; state: "current" | "cached" | "unknown"; confirmedAt: string };
+export type BatteryDevice = { id: string; name: string; kind: string; percent: number | null; charging: boolean | null; approximate: boolean; unconfirmed: boolean; receiverOnly: boolean; state: "current" | "cached" | "unknown"; confirmedAt: string };
 export type BatterySnapshot = { devices: BatteryDevice[]; errors: string[] };
 export function normalizeAudio(value: unknown): AudioSnapshot {
   const v = object(value);
@@ -34,7 +34,7 @@ export function normalizeBatteries(value: unknown): BatterySnapshot {
       seen.add(id);
       const percent = typeof d.percent === "number" && Number.isFinite(d.percent) && d.percent >= 0 && d.percent <= 100 ? d.percent : null;
       const state = d.measurementState === "current" || d.measurementState === "cached" ? d.measurementState : "unknown";
-      return [{ id, name: text(d.name) || id, percent, charging: typeof d.charging === "boolean" ? d.charging : null,
-        approximate: d.approximate === true, unconfirmed: d.unconfirmed === true, state, confirmedAt: text(d.confirmedAtUtc) }];
+      return [{ id, name: text(d.name) || id, kind: text(d.kind), percent, charging: typeof d.charging === "boolean" ? d.charging : null,
+        approximate: d.approximate === true, unconfirmed: d.unconfirmed === true, receiverOnly: d.receiverOnly === true, state, confirmedAt: text(d.confirmedAtUtc) }];
     }) };
 }

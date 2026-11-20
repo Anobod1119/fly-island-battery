@@ -83,6 +83,7 @@ export function IslandHeader({
   const dotLabels = {
     todo: t.island.todoList,
     music: t.island.music,
+    devices: t.island.devices,
     clipboard: t.island.clipboardHistory,
     shelf: t.island.shelf,
     translation: t.translator.title,
