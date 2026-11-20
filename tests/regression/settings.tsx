@@ -94,6 +94,8 @@ if (!automated) {
       check(item.getAttribute("aria-current") === "page", `${category}: the sidebar marks the open page`);
       check(element(".settings-page__title").textContent === item.textContent, `${category}: the page title matches the sidebar`);
       check(panel.querySelector(".settings-group, .settings-section"), `${category}: the page has content`);
+      if (category === "devices") check(panel.textContent?.includes("本地插件目录"), "Device setup has its own page");
+      if (category === "plugins") check(!panel.textContent?.includes("本地插件目录"), "Device setup is separate from Plugins");
       check(panel.scrollWidth <= panel.clientWidth, `${category}: nothing overflows horizontally`);
       check(!panel.querySelector("input[type=number]"), `${category}: no native number inputs`);
       // Settings stay short: a handful of rows per page (Messages lists mailboxes, so it is left out).

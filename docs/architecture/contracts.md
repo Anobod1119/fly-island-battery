@@ -201,6 +201,8 @@ Codex 会话摘要（2026-11-15）：`list_agent_sessions` 可选返回 `lastCom
 
 ## 设备电量与音频插件新增契约
 
+- 设置分类：`devices`（设备）；`plugins` 继续作为插件市场 / 开发规范入口。设备页读取原来的设备偏好 key，不迁移或重置绑定。
+
 - localStorage：`focusd-island-device-battery`，对象字段 `enabled`、`directory`、`speakerId`、`headsetId`；缺字段或异常内容安全回退，默认关闭。
 - IPC：`device_battery_audio(directory, speakerId, headsetId, target)`，target 为 null / speaker / headset；`device_battery_read(directory)`。
 - 独立插件目录：`device-battery-plugin.json`（id=device-battery，version=1）、`device-battery-bridge.exe`、`engine/server.py`、`engine/runtime/python.exe`。

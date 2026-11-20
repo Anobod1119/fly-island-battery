@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { DeviceBatterySettings } from "../../features/device-battery";
 import { ArrowUpRight, Puzzle, ShieldCheck } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
@@ -21,7 +20,6 @@ import "./PluginsSettingsPage.css";
 /** The built-in plugin market comes first; the external data host below follows the release flag. */
 export function PluginsSettingsPage({ settings, onSettingsChange }: { settings: IslandSettings; onSettingsChange: (settings: IslandSettings) => void }) {
   return <div className="plugins-page">
-    <DeviceBatterySettings />
     {PLUGIN_MARKET_ENABLED && <PluginMarket settings={settings} onSettingsChange={onSettingsChange} />}
     {PLUGINS_ENABLED ? <EnabledPluginsSettingsPage /> : <PluginDevelopmentPage />}
   </div>;
