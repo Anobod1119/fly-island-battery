@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { DeviceBatteryPanel } from "../device-battery";
 import { MicVocal, Music2, Pause, Play, RefreshCcw, SkipBack, SkipForward } from "lucide-react";
 import { useTranslation } from "../../i18n";
 import type { MediaState } from "./api";
@@ -156,6 +157,7 @@ export function MusicPlayerPanel({
           </button>
         </div>
       )}
+      <DeviceBatteryPanel />
     </section>
   );
 }

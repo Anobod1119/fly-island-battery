@@ -1,0 +1,112 @@
+//! Optional local, headless MyFinder-derived plugin; no worker runs on application startup.
+mod process;
+use serde_json::{json, Value};
+use std::{path::{Path, PathBuf}, sync::Mutex};
+
+static BATTERY_QUERY: Mutex<()> = Mutex::new(());
+static AUDIO_QUERY: Mutex<()> = Mutex::new(());
+
+fn plugin_directory(directory: &str) -> Result<PathBuf, String> {
+    let path = Path::new(directory).canonicalize().map_err(|_| "Choose the built device-battery plugin folder")?;
+    let marker = std::fs::read(path.join("device-battery-plugin.json")).map_err(|_| "Not a device-battery plugin folder")?;
+    let marker: Value = serde_json::from_slice(&marker).map_err(|_| "Invalid device-battery plugin marker")?;
+    if marker["id"] != "device-battery" || marker["version"] != 1 { return Err("Unsupported device-battery plugin".into()); }
+    if !path.join("device-battery-bridge.exe").is_file() { return Err("Build the device-battery bridge first".into()); }
+    Ok(path)
+}
+
+fn audio(directory: String, speaker_id: String, headset_id: String, target: Option<String>) -> Result<Value, String> {
+    let _guard = AUDIO_QUERY.try_lock().map_err(|_| "An audio operation is already in progress")?;
+    let path = plugin_directory(&directory)?;
+    if speaker_id.len() > 4096 || headset_id.len() > 4096 { return Err("Audio binding is too long".into()); }
+    let mut args = vec![if target.is_some() { "switch" } else { "audio" }.to_string(), speaker_id, headset_id];
+    if let Some(target) = target {
+        if target != "speaker" && target != "headset" { return Err("Unknown audio output".into()); }
+        args.push(target);
+    }
+    process::run(&path.join("device-battery-bridge.exe"), &args, 12)
+}
+
+#[tauri::command]
+pub(crate) async fn device_battery_audio(directory: String, speaker_id: String, headset_id: String, target: Option<String>) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || audio(directory, speaker_id, headset_id, target)).await.map_err(|e| e.to_string())?
+}
+
+fn merge(native: Value, generic: Result<Value, String>) -> Value {
+    let mut devices = native["devices"].as_array().cloned().unwrap_or_default();
+    let mut errors = Vec::<String>::new();
+    match generic {
+        Ok(value) => {
+            devices.extend(value["devices"].as_array().cloned().unwrap_or_default());
+            if let Some(list) = value["errors"].as_array() { errors.extend(list.iter().filter_map(Value::as_str).map(str::to_owned)); }
+        }
+        Err(error) => errors.push(error),
+    }
+    json!({"devices": devices, "errors": errors})
+}
+
+#[tauri::command]
+pub(crate) async fn device_battery_read(directory: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = BATTERY_QUERY.try_lock().map_err(|_| "A battery query is already in progress")?;
+        let path = plugin_directory(&directory)?;
+        let native = process::run(&path.join("device-battery-bridge.exe"), &["battery".into()], 12)?;
+        let generic = if path.join("engine/runtime/python.exe").is_file() {
+            process::run(&path.join("engine/runtime/python.exe"), &[
+                "-I".into(), "-B".into(), path.join("engine/server.py").to_string_lossy().into_owned(), "--once".into()
+            ], 50)
+        } else { Err("Portable Python reader is missing; rebuild without -SkipRuntime".to_string()) };
+        Ok(merge(native, generic))
+    }).await.map_err(|e| e.to_string())?
+}
+
+macro_rules! tauri_commands {
+    ($next:ident [$($done:tt)*] $($rest:tt)*) => {
+        $next!([$($done)* crate::device_battery::device_battery_audio, crate::device_battery::device_battery_read,] $($rest)*)
+    };
+}
+pub(crate) use tauri_commands;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn partial_failure_preserves_native_readings_and_reports_failure() {
+        let result = merge(json!({"devices":[{"id":"native","percent":null}]}), Err("offline".into()));
+        assert!(result["devices"][0]["percent"].is_null());
+        assert_eq!(result["errors"][0], "offline");
+    }
+    #[test]
+    fn retains_quality_and_unknown_values() {
+        let result = merge(json!({"devices":[]}), Ok(json!({"devices":[{"percent":null,"measurementState":"unknown","approximate":true}]})));
+        assert!(result["devices"][0]["percent"].is_null());
+        assert_eq!(result["devices"][0]["measurementState"], "unknown");
+    }
+    #[test]
+    fn rejects_directories_without_plugin_marker() {
+        assert!(plugin_directory(env!("CARGO_MANIFEST_DIR")).is_err());
+    }
+    #[test]
+    #[ignore = "Requires locally built plugin; set FLY_ISLAND_DEVICE_BATTERY_TEST_DIR"]
+    fn local_audio_bridge_reads_without_switching() {
+        let directory = std::env::var("FLY_ISLAND_DEVICE_BATTERY_TEST_DIR").unwrap();
+        let before = audio(directory.clone(), String::new(), String::new(), None).unwrap();
+        let after = audio(directory, String::new(), String::new(), None).unwrap();
+        assert!(after["Devices"].is_array());
+        assert_eq!(before["ConsoleOutputId"], after["ConsoleOutputId"]);
+        assert_eq!(before["CommunicationsOutputId"], after["CommunicationsOutputId"]);
+    }
+    #[test]
+    #[ignore = "Requires locally built plugin runtime; set FLY_ISLAND_DEVICE_BATTERY_TEST_DIR"]
+    fn local_portable_engine_smoke_uses_isolated_process_runner() {
+        let directory = std::env::var("FLY_ISLAND_DEVICE_BATTERY_TEST_DIR").unwrap();
+        let path = plugin_directory(&directory).unwrap();
+        let result = process::run(&path.join("engine/runtime/python.exe"), &[
+            "-I".into(), "-B".into(), path.join("engine/server.py").to_string_lossy().into_owned(),
+            "--package-smoke".into(), "--once".into()
+        ], 15).unwrap();
+        assert_eq!(result["packageSmoke"], true);
+        assert!(result["providerCount"].as_u64().unwrap() > 0);
+        assert_eq!(result["errors"], json!([]));
+    }
+}

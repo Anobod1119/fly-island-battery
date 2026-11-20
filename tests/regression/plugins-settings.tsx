@@ -50,7 +50,7 @@ function check(condition: unknown, label: string) {
   messages.push(`PASS ${label}`);
 }
 const wait = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
-const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === text)!;
+const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>(".plugins-settings button, .plugin-development button")].find((item) => item.textContent === text)!;
 const app = createRoot(document.getElementById("fixture")!);
 try {
   localStorage.removeItem(NATIVE_PLUGINS_KEY);
@@ -80,8 +80,8 @@ try {
   if (!PLUGINS_ENABLED) {
     const guide = document.querySelector<HTMLElement>(".plugin-development")!;
     check(guide?.textContent?.includes(t.comingSoon) && guide.textContent.includes(t.invitation), "关闭时显示本地化的插件计划与贡献说明");
-    check(!document.querySelector(".plugins-settings, details, input, select") && hostCalls.length === 0,
-      "关闭时没有安装、启用或开发者功能，也不请求宿主、事件或索引");
+    check(!document.querySelector(".plugins-settings, .plugins-settings__developer") && hostCalls.length === 0,
+      "外部数据接入关闭时没有安装或开发者功能，默认关闭的设备插件也不请求宿主");
     const link = button(t.readGuide);
     await act(async () => { failOpen = true; link.click(); });
     check(guide.querySelector("[role='alert']")?.textContent === t.openGuideFailed, "外链失败在原地提供本地化提示");

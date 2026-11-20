@@ -42,4 +42,8 @@ src-tauri/tauri.release.conf.json
 /demo.mp4
 *.vsix
 /artifacts/plugins/
+/artifacts/device-battery/
+/plugins/device-battery/upstream/tmp/
+**/__pycache__/
+*.pyc
 /plugins/**/target/

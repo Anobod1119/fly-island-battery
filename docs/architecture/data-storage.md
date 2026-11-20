@@ -61,3 +61,7 @@ DSH（issue #51）：`agent_status/dsh_sessions.rs` 只读 `%APPDATA%/dsh-deskto
 仓库内 `artifacts/plugins/` 为忽略的 zip 与 plugins-index.json 构建产物；本地测试数据在 node_modules/.cache/plugin-tests/。插件 crate 的 target 不入库。
 
 索引下载/解析诊断写入同样约 1 MiB 上限的 `plugin-logs/catalog.log`；不记录 URL 认证信息。索引失败统一返回 `plugin_index_unavailable`，设置页按当前语言显示简短状态和重试，不回显底层错误。
+
+## 设备电量与音频插件补充
+
+`focusd-island-device-battery`：localStorage 对象 `{enabled, directory, speakerId, headsetId}`，默认关闭。只记录用户指定的本地插件目录和音频绑定；不保存设备电量、账号或 MyFinder 配置。读取器运行库和插件 exe 位于用户指定目录，构建缓存不进入 Git。

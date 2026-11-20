@@ -4,6 +4,7 @@
   "version": "3.2.8-beta",
   "type": "module",
   "scripts": {
+    "plugin:device-battery": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File plugins/device-battery/build.ps1",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

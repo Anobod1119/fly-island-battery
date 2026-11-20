@@ -198,3 +198,10 @@ Codex 会话摘要（2026-11-15）：`list_agent_sessions` 可选返回 `lastCom
 - 事件：`plugins-changed`（无敏感数据；前端重新 get_plugins）。stdio RPC：`initialize`、`action`、`publish`，停止时可发送无 id 的可选 `shutdown` 通知；旧 v1 插件仍由宿主限时结束，完整 schema 见 `docs/plugins/api.md`。
 - manifest：`fly-island-plugin.json`；发布索引：`plugins-index.json`。现有命令、事件、窗口、localStorage key、latest.json 格式和更新端点保持兼容。
 - v3.2.6（2026-11-18，第三轮手测后）：`focusd-island-settings` 兼容新增 `todoVisibleRows`（整数 3–12，默认 8，即默认面板高度上限原本就放得下的行数，老用户观感不变）。新增命令 `add_file_shelf_welcome(fileName, content)`：首次启动时把欢迎说明写到应用数据目录 `welcome/<fileName>.txt` 并放进文件中转。首次启动（从未保存过设置和待办）时待办列表带一条欢迎待办，按普通待办保存在 `focusd-island-todos`。
+
+## 设备电量与音频插件新增契约
+
+- localStorage：`focusd-island-device-battery`，对象字段 `enabled`、`directory`、`speakerId`、`headsetId`；缺字段或异常内容安全回退，默认关闭。
+- IPC：`device_battery_audio(directory, speakerId, headsetId, target)`，target 为 null / speaker / headset；`device_battery_read(directory)`。
+- 独立插件目录：`device-battery-plugin.json`（id=device-battery，version=1）、`device-battery-bridge.exe`、`engine/server.py`、`engine/runtime/python.exe`。
+- 不改变既有窗口 label、命令、事件和发布开关。

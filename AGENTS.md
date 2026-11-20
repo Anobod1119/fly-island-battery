@@ -49,6 +49,7 @@
 ├── web-demo/            # 官网的小岛实时演示：真实 IslandApp + 演示数据 mock + 模拟鼠标；`pnpm build:web-demo` 构建，官网仓库的 scripts/sync-island-demo.mjs 同步过去
 ├── tests/               # unit/ 前端单元测试、scripts/ 脚本测试（node:test，*.test.mjs）；regression/ 浏览器回归页（*.html + *.tsx）
 ├── scripts/             # release/ 发布、签名与 latest.json 生成；根目录放开发流程脚本：行数检查、浏览器回归页运行器（run-regression.mjs）、dev 前停止运行中的岛屿
+├── plugins/device-battery/ # 可关闭的设备电量 / 音频源码插件、独立 .NET 桥接与带许可的上游读取器；不属于 AI JSON-RPC workspace
 ├── docs/                # 专题文档（功能说明放在根目录）；architecture/ 架构，investigations/ 排查记录，releases/ 发布说明（v3 起），assets/ README 配图
 ├── DESIGN.md            # 已确认的界面设计约定：全局方向；各区域的约定在 docs/design/
 └── README*.md           # 中英文项目说明

@@ -3,6 +3,7 @@ mod app_log;
 mod agent_status;
 mod clipboard_history;
 mod clipboard_window;
+mod device_battery;
 mod file_shelf;
 mod island;
 mod lyrics;
@@ -133,6 +134,7 @@ pub fn run() {
             agent_status;
             agent_approval;
             media_control;
+            device_battery;
             media_plugins;
             plugin_host;
             lyrics;
