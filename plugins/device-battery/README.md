@@ -15,7 +15,7 @@ pnpm tauri dev
 1. 复制构建输出的绝对目录（默认 `artifacts/device-battery`）。
 2. 在「设置 → 插件」的本地插件目录中粘贴、保存，再启用。
 3. 从活动音频输出中分别绑定扬声器和耳机；不自动猜测设备，不修改麦克风。
-4. 打开音乐页，点击扬声器 / 耳机切换。点击电量按钮展开设备列表，刷新按钮重新查询。
+4. 在设备设置的「切换输出」中直接选择扬声器 / 耳机；音乐页保留相同的切换入口。音乐页点击电量按钮展开设备列表，刷新按钮重新查询。
 5. 关闭插件即隐藏音乐页入口并停止后续查询。已开始的单次读取最多约 62 秒内结束；宿主退出时查询进程及其子进程一并结束。
 
 这是可关闭的源码集成与本地独立插件包，尚未发布到在线市场，不支持直接用现有 JSON-RPC「本地插件目录」加载。需要另一个小岛安装使用时，复制**整个**输出文件夹，在新的设备插件设置中指定该目录。仅信任自己的构建或可信来源；目录内程序具有当前用户权限。
@@ -45,7 +45,7 @@ pnpm tauri dev
 
 ## English
 
-An optional Fly Island source plugin adds speaker/headphone switching and wireless-device battery readings to Music. Build with `pnpm plugin:device-battery`, save the generated folder under Settings → Plugins → Device battery & audio, enable it and bind two active outputs. Click the battery indicator for device details. Default is off; the existing JSON-RPC loader and release flags are unchanged. This local package has not been published to the online market.
+An optional Fly Island source plugin adds speaker/headphone switching and wireless-device battery readings to Music. Build with `pnpm plugin:device-battery`, save the generated folder under Settings → Plugins → Device battery & audio, enable it and bind two active outputs. Switch directly from the device settings' Switch output buttons or the Music toolbar. Click the battery indicator for device details. Default is off; the existing JSON-RPC loader and release flags are unchanged. This local package has not been published to the online market.
 
 The independent headless bridge preserves the pinned MyFinder implementation and licenses. It exposes only audio enumeration/switching and battery queries, with verified audio readback, rollback, timeouts and owned process-tree cleanup. It preserves communications/recording defaults and never launches the MyFinder UI. Unknown values are not fabricated; estimates and cached readings are labelled. Hardware support and verification limits remain those of the upstream source.
 

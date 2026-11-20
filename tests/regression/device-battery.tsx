@@ -22,6 +22,7 @@ const t = TRANSLATIONS[locale].deviceBattery;
 const calls: string[] = [];
 let current = "speaker-id";
 let failSwitch = false;
+let headsetAvailable = true;
 mockIPC(async (command, payload) => {
   calls.push(command);
   await new Promise((resolve) => setTimeout(resolve, 20));
@@ -33,7 +34,7 @@ mockIPC(async (command, payload) => {
   if (command === "device_battery_audio") {
     if (args.target && !failSwitch) current = `${args.target}-id`;
     return { OperationSucceeded: !failSwitch, ConsoleOutputId: current, Error: failSwitch ? "Switch failed; original output restored" : null,
-      Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, { Id: "headset-id", Name: "Headphones", Flow: 0 }, { Id: "mic", Name: "Microphone", Flow: 1 }] };
+      Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, ...(headsetAvailable ? [{ Id: "headset-id", Name: "Headphones", Flow: 0 }] : []), { Id: "mic", Name: "Microphone", Flow: 1 }] };
   }
   if (command === "device_battery_read") return { devices: [
     { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", percent: 72, approximate: true, measurementState: "cached" },
@@ -73,6 +74,27 @@ try {
   await render(true); await wait();
   check(document.body.textContent?.includes(t.speaker) && document.body.textContent?.includes(t.headset), "settings exposes both localized bindings");
   check(calls.filter((call) => call === "device_battery_read").length <= 2, "binding settings does not poll batteries");
+  const batteryCalls = calls.filter((call) => call === "device_battery_read").length;
+  const choices = document.querySelectorAll<HTMLButtonElement>(`[role=group][aria-label='${t.switchOutput}'] button`);
+  check(choices.length === 2 && choices[1].getAttribute("aria-pressed") === "true", "device page exposes switches with the verified current output selected");
+  await act(async () => choices[0].click());
+  check([...choices].every((button) => button.disabled), "device page prevents concurrent switches during native readback");
+  await wait();
+  check(current === "speaker-id" && choices[0].getAttribute("aria-pressed") === "true", "device page switches to speakers");
+  await act(async () => choices[1].click()); await wait();
+  check(current === "headset-id" && choices[1].getAttribute("aria-pressed") === "true", "device page switches back to headphones");
+  failSwitch = true;
+  await act(async () => choices[0].click()); await wait();
+  check(current === "headset-id" && choices[1].getAttribute("aria-pressed") === "true" && document.querySelector("[role=alert]")?.textContent?.includes("restored"), "device page preserves selection and reports a failed switch");
+  failSwitch = false; headsetAvailable = false;
+  const refresh = [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === t.refresh)!;
+  await act(async () => refresh.click()); await wait();
+  const beforeOfflineClick = calls.length;
+  await act(async () => choices[1].click()); await wait();
+  check(choices[1].disabled && calls.length === beforeOfflineClick, "device page disables a bound output that is no longer active");
+  check(calls.filter((call) => call === "device_battery_read").length === batteryCalls && fixture.scrollWidth <= fixture.clientWidth,
+    "device-page switching does not poll batteries or overflow the narrow layout");
+  headsetAvailable = true;
   fixture.style.width = params.has("narrow") ? "300px" : "520px";
   fixture.style.height = "234px";
   const noop = () => {};

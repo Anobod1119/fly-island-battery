@@ -1,6 +1,6 @@
 import "./SettingsChoice.css";
 
-export type SettingsChoiceOption<T extends string> = { value: T; label: string };
+export type SettingsChoiceOption<T extends string> = { value: T; label: string; disabled?: boolean };
 
 /** Two or three side-by-side options, one of them chosen. More options belong in a SettingsSelect. */
 export function SettingsChoice<T extends string>({
@@ -23,6 +23,7 @@ export function SettingsChoice<T extends string>({
             key={option.value}
             className={active ? "settings-choice__option settings-choice__option--active" : "settings-choice__option"}
             type="button"
+            disabled={option.disabled}
             aria-pressed={active}
             onClick={() => onChange(option.value)}
           >
