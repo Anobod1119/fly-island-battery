@@ -29,10 +29,10 @@ export function useDeviceBattery(settings: DeviceBatterySettings, queryBattery =
     pending.current.battery = version; setBatteryBusy(true);
     try {
       const value = await readDeviceBatteries(directory, (snapshot) => {
-        if (version === batteryGeneration.current) setBattery(snapshot);
+        if (version === batteryGeneration.current) { setBattery(snapshot); setBatteryError(snapshot.errors.join(" · ")); }
       });
       if (version === batteryGeneration.current) { setBattery(value); setBatteryError(value.errors.join(" · ")); }
-    } catch (e) { if (version === batteryGeneration.current) { setBattery(null); setBatteryError(String(e)); } }
+    } catch (e) { if (version === batteryGeneration.current) setBatteryError(String(e)); }
     finally { if (pending.current.battery === version) pending.current.battery = -1; if (version === batteryGeneration.current) setBatteryBusy(false); }
   }, [enabled, directory, queryBattery]);
   useEffect(() => {

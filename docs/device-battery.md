@@ -7,8 +7,8 @@
 - 设置 → 设备：独立页面提供本地目录、启用开关、音频绑定 / 切换和电量列表；原插件页移除设备配置，已有配置原样保留。
 - 岛上 → 设备（耳机图标）：参考 MyFinder 双列设备卡片，显示大号电量 / 进度条、音源切换及设备设置入口；支持页面排序、记忆上次页面与 Ctrl + 滚轮切页。离开或收起该页即卸载查询。
 - 音乐页：只在启用时挂载紧凑控制条，电量详情为浮层，避免挤占歌词。
-- 电量扫描逐步显示已有读数。`device_battery_read(directory, progress?)` 支持查询过程中推送结果，返回值仍是最终快照。音频使用 `device_battery_audio(directory, speakerId, headsetId, target)`。
-- 音频绑定改变后立即查询，保留已有列表；原生音频查询等待上一条限时调用完成，避免重建界面后因忙而停留在空状态。电量与音频各自管理生命周期，改选绑定不会重查电量。音频每 5 秒及窗口获焦时更新，电量每 60 秒更新，关闭页面后停止后续查询。
+- 电量扫描逐步显示已有读数。`device_battery_read(directory, progress?)` 支持查询过程中推送结果，返回值仍是最终快照；多个窗口同时查询同一插件目录时共用一轮扫描，后来加入的窗口立即收到最新进度，不再因已有扫描而失败。最近 10 分钟的结果也会在新扫描期间先显示为缓存读数，避免岛上已有鼠标读数而设置页空白。音频使用 `device_battery_audio(directory, speakerId, headsetId, target)`。
+- 音频绑定改变后立即查询，保留已有列表；原生音频查询等待上一条限时调用完成。电量与音频各自管理生命周期，改选绑定不会重查电量。音频每 5 秒及窗口获焦时更新，电量每 60 秒更新，关闭页面后不再接收结果；已开始的共享扫描会继续，并向仍打开的窗口返回结果。
 - 领域实现和 UI 可整体移除，接入点只有设备页 / 设置分类、音乐面板、Rust 组装和 i18n 汇总。
 
 ## 自测记录
@@ -26,6 +26,8 @@
 | `pnpm check` | 类型、回归页类型、ESLint、文件行数和 460 项单元测试通过 |
 | `pnpm build` | 前端生产构建成功；保留原有大分块提示 |
 | `cargo test --manifest-path src-tauri/Cargo.toml` | 468 通过，15 个环境依赖测试按声明忽略；测试前已构建 example-hello |
+| `cargo test --manifest-path src-tauri/Cargo.toml` | 本次改动后 475 通过，17 个环境依赖测试按声明忽略 |
+| `cargo test --manifest-path src-tauri/Cargo.toml local_overlapping_battery_windows_receive_same_progress_and_result -- --ignored --nocapture` | 本机实际插件目录与硬件验证通过；两个窗口消费者收到同一进度快照和最终扫描结果 |
 | `cargo test --manifest-path src-tauri/Cargo.toml device_battery::tests::local -- --ignored` | 配置 `FLY_ISLAND_DEVICE_BATTERY_TEST_DIR` 后，3 个本地测试通过：音频只读、隔离进程运行库探测、两条重叠音频查询依次成功；不修改实际音源 |
 | `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings` | 通过 |
 | `pnpm tauri build --no-bundle` | 桌面 release 构建成功 |

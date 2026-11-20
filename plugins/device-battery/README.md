@@ -33,7 +33,7 @@ pnpm tauri dev
 
 音频切换沿用上游：只改变 Console 和 Multimedia 默认输出，读回核验，失败尝试恢复，Communications 与录音默认设备保持不变。绑定端点不在活动列表时按钮禁用。音频端点在线不代表无线耳机已开机。
 
-设备协议、型号限制和验证等级沿用上游，不保证全品牌全系列；未知值保留为未知，历史值和估算单独标记。只在设备页 / 音乐页显示时读取，电量间隔 60 秒；音频每 5 秒、窗口获得焦点和绑定改变后自动检查。改选音频不会重启电量查询或清空已有列表。引擎单次进程不保留跨轮设备缓存，系统自身缓存依然可能存在。多个窗口的音频查询由后端依次处理，避免重叠导致“忙”后需要手动刷新。
+设备协议、型号限制和验证等级沿用上游，不保证全品牌全系列；未知值保留为未知，历史值和估算单独标记。只在设备页 / 音乐页显示时读取，电量间隔 60 秒；音频每 5 秒、窗口获得焦点和绑定改变后自动检查。改选音频不会重启电量查询或清空已有列表。引擎单次进程不保留跨轮设备缓存，系统自身缓存依然可能存在。同一插件目录的多窗口会共享一轮电量扫描和增量读数；最近 10 分钟的已读数据会先作为缓存显示，再由新扫描更新。音频查询仍由后端依次处理。
 
 ## 文件、网络与许可
 
@@ -49,4 +49,4 @@ An optional Fly Island source plugin adds dedicated Devices pages to the island 
 
 The independent headless bridge preserves the pinned MyFinder implementation and licenses. It exposes only audio enumeration/switching and battery queries, with verified audio readback, rollback, timeouts and owned process-tree cleanup. It preserves communications/recording defaults and never launches the MyFinder UI. Unknown values are not fabricated; estimates and cached readings are labelled. Hardware support and verification limits remain those of the upstream source.
 
-Only visible panels poll: batteries every 60 seconds, audio every 5 seconds and on focus/binding changes. Disabling prevents subsequent queries. Overlapping audio queries wait for the previous timed operation. Active battery reads can take up to approximately 62 seconds. Runtime operations are offline. The initial build downloads hash-pinned Python/hidapi and verifies the Python signature. Copy the complete output directory for another installation; load only trusted local code. Generated binaries, runtimes and downloads are excluded from Git. Keep the AGPL and MIT notices/source obligations when distributing the plugin.
+Only visible panels poll: batteries every 60 seconds, audio every 5 seconds and on focus/binding changes. Concurrent battery requests for the same directory share one scan and its latest partial snapshot. A completed battery snapshot is replayed as cached data for up to 10 minutes while a new scan runs. Disabling prevents subsequent polling; a scan already in progress completes for remaining subscribers. Active battery reads can take up to approximately 62 seconds. Overlapping audio queries wait for the previous timed operation. Runtime operations are offline. The initial build downloads hash-pinned Python/hidapi and verifies the Python signature. Copy the complete output directory for another installation; load only trusted local code. Generated binaries, runtimes and downloads are excluded from Git. Keep the AGPL and MIT notices/source obligations when distributing the plugin.

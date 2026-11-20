@@ -32,6 +32,7 @@ let headsetAvailable = true;
 let audioDelay = 20;
 let completeBatteryRead: (() => void) | undefined;
 let holdBatteryRead = false;
+let failBatteryRead = false;
 const audioBindings: string[] = [];
 mockIPC(async (command, payload) => {
   calls.push(command);
@@ -49,6 +50,7 @@ mockIPC(async (command, payload) => {
       Devices: [{ Id: "speaker-id", Name: "Speakers", Flow: 0 }, { Id: "speaker-alt", Name: "Desk speakers", Flow: 0 }, ...(headsetAvailable ? [{ Id: "headset-id", Name: "Headphones", Flow: 0 }] : []), { Id: "mic", Name: "Microphone", Flow: 1 }] };
   }
   if (command === "device_battery_read") {
+    if (failBatteryRead) throw new Error("Battery reader timed out");
     const mouse = { id: "mouse", name: "A very long wireless mouse name that must remain inside the narrow island", kind: "mouse", percent: 72, approximate: true, measurementState: "cached" };
     if (holdBatteryRead) {
       const { progress } = payload as { progress: Channel<unknown> };
@@ -175,6 +177,13 @@ try {
     "island device page shows real battery cards and does not invent a bar for unknown percentages");
   check(document.querySelector(".device-dashboard")?.textContent?.includes(t.receiverOnly),
     "a detected receiver without a battery reply stays visible with an explicit status");
+  failBatteryRead = true;
+  await act(async () => document.querySelector<HTMLButtonElement>(".device-dashboard__footer button")!.click()); await wait();
+  check(document.querySelectorAll(".device-dashboard__card").length === 2 && document.querySelector("[role=alert]")?.textContent?.includes("timed out"),
+    "a failed refresh retains the previous battery readings and reports the failure");
+  failBatteryRead = false;
+  await act(async () => document.querySelector<HTMLButtonElement>(".device-dashboard__footer button")!.click()); await wait();
+  check(!document.querySelector("[role=alert]"), "a successful retry clears the battery error");
   const dashboardOutputs = document.querySelectorAll<HTMLButtonElement>(".device-dashboard__outputs button");
   await act(async () => dashboardOutputs[0].click()); await wait();
   check(current === "speaker-id" && dashboardOutputs[0].getAttribute("aria-pressed") === "true", "island device page switches outputs and reflects native readback");

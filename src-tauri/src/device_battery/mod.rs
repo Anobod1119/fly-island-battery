@@ -1,10 +1,10 @@
 //! Optional local, headless MyFinder-derived plugin; no worker runs on application startup.
 mod process;
 mod inventory;
+mod scan;
 use serde_json::{json, Value};
 use std::{path::{Path, PathBuf}, sync::Mutex};
 
-static BATTERY_QUERY: Mutex<()> = Mutex::new(());
 static AUDIO_QUERY: Mutex<()> = Mutex::new(());
 
 fn plugin_directory(directory: &str) -> Result<PathBuf, String> {
@@ -54,26 +54,31 @@ pub(crate) async fn device_battery_read(
     directory: String, webview: tauri::Webview, progress: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<Value, String> {
     let progress = progress.map(|id| id.channel_on::<_, Value>(webview));
-    tauri::async_runtime::spawn_blocking(move || {
-        let _guard = BATTERY_QUERY.try_lock().map_err(|_| "A battery query is already in progress")?;
-        let path = plugin_directory(&directory)?;
-        let native = process::run(&path.join("device-battery-bridge.exe"), &["battery".into()], 12)?;
-        let generic = if path.join("engine/runtime/python.exe").is_file() {
-            let native_progress = native.clone();
-            let mut latest = None;
-            process::poll(&path.join("engine/runtime/python.exe"), &[
-                "-I".into(), "-B".into(), path.join("engine/server.py").to_string_lossy().into_owned(),
-            ], move |snapshot| {
-                let Some(channel) = &progress else { return };
-                let value = merge(native_progress.clone(), Ok(snapshot.clone()));
-                if latest.as_ref() != Some(&value) && (latest.is_some() || value["devices"].as_array().is_some_and(|items| !items.is_empty())) {
-                    let _ = channel.send(value.clone());
-                    latest = Some(value);
-                }
-            })
-        } else { Err("Portable Python reader is missing; rebuild without -SkipRuntime".to_string()) };
-        Ok(merge(native, generic))
-    }).await.map_err(|e| e.to_string())?
+    let path = plugin_directory(&directory)?;
+    scan::read(path, move |value| {
+        if let Some(channel) = &progress { let _ = channel.send(value); }
+    }).await
+}
+
+fn read_hardware(path: &Path, mut progress: impl FnMut(Value) + Send + 'static) -> Result<Value, String> {
+    let native = process::run(&path.join("device-battery-bridge.exe"), &["battery".into()], 12)?;
+    if native["devices"].as_array().is_some_and(|items| !items.is_empty()) {
+        progress(merge(native.clone(), Ok(json!({"devices":[],"errors":[]}))));
+    }
+    let generic = if path.join("engine/runtime/python.exe").is_file() {
+        let native_progress = native.clone();
+        let mut latest = None;
+        process::poll(&path.join("engine/runtime/python.exe"), &[
+            "-I".into(), "-B".into(), path.join("engine/server.py").to_string_lossy().into_owned(),
+        ], move |snapshot| {
+            let value = merge(native_progress.clone(), Ok(snapshot.clone()));
+            if latest.as_ref() != Some(&value) && (latest.is_some() || value["devices"].as_array().is_some_and(|items| !items.is_empty())) {
+                progress(value.clone());
+                latest = Some(value);
+            }
+        })
+    } else { Err("Portable Python reader is missing; rebuild without -SkipRuntime".to_string()) };
+    Ok(merge(native, generic))
 }
 
 macro_rules! tauri_commands {
@@ -144,6 +149,27 @@ mod tests {
             eprintln!("{}: {} (receiver only: {})", device["name"], device["percent"], device["receiverOnly"]);
         }
         eprintln!("Completed after {:?}; errors: {}", start.elapsed(), merged["errors"]);
+    }
+    #[test]
+    #[ignore = "Queries attached hardware with the locally built plugin runtime"]
+    fn local_overlapping_battery_windows_receive_same_progress_and_result() {
+        let directory = std::env::var("FLY_ISLAND_DEVICE_BATTERY_TEST_DIR").unwrap();
+        let path = plugin_directory(&directory).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let first_path = path.clone();
+        let first = tauri::async_runtime::spawn(async move {
+            scan::read(first_path, move |value| { let _ = sender.send(value); }).await
+        });
+        let partial = receiver.recv_timeout(std::time::Duration::from_secs(30)).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let second = tauri::async_runtime::spawn(async move {
+            scan::read(path, move |value| { let _ = sender.send(value); }).await
+        });
+        let replay = receiver.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert_eq!(partial, replay);
+        let (first, second) = tauri::async_runtime::block_on(async { (first.await.unwrap(), second.await.unwrap()) });
+        assert_eq!(first.unwrap(), second.unwrap());
+        eprintln!("Both windows received partial readings and the same completed scan");
     }
     #[test]
     #[ignore = "Requires locally built plugin; set FLY_ISLAND_DEVICE_BATTERY_TEST_DIR"]
